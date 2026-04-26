@@ -289,6 +289,7 @@
   }
   .tier-editor-row .reorder { font-size: 18px; padding: 6px 8px; }
   .tier-editor-row .delete { color: var(--danger); border-color: var(--danger); }
+  .tier-editor-row.picked { outline: 2px solid var(--accent); outline-offset: -1px; }
 
   .swatch-grid {
     display: grid;
@@ -308,16 +309,18 @@
 
   /* View mode */
   #view-canvas-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    display: block;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #0a0a0a;
+    border-radius: 8px;
+    padding: 4px;
   }
   #view-canvas {
-    max-width: 100%;
-    height: auto;
-    background: #fff;
-    border-radius: 8px;
+    display: block;
+    background: #1c1c1c;
+    border-radius: 6px;
+    /* No max-width — canvas keeps its native width and the wrap scrolls horizontally. */
   }
 
   /* Form rows */
@@ -1567,7 +1570,8 @@ function renderTierEditor(){
   tierEditor.rows.forEach((r, idx) => {
     const row = document.createElement("div");
     row.className = "tier-editor-row";
-    if(tierEditor.pickedIdx === idx) row.style.outline = "2px solid var(--accent)";
+    row.dataset.idx = String(idx);
+    if(tierEditor.pickedIdx === idx) row.classList.add("picked");
 
     const swatch = document.createElement("div");
     swatch.className = "swatch";
@@ -1603,6 +1607,7 @@ function renderTierEditor(){
       if(tierEditor.rows.length <= 1){ showToast("Need at least one tier"); return; }
       tierEditor.rows.splice(idx, 1);
       if(tierEditor.pickedIdx === idx) tierEditor.pickedIdx = null;
+      else if(tierEditor.pickedIdx > idx) tierEditor.pickedIdx -= 1;
       renderTierEditor();
     });
 
@@ -1615,9 +1620,13 @@ function renderTierEditor(){
   });
 }
 
+// Toggle the picked indicator via a class only — never rebuild the editor here,
+// or focusing a name input would destroy the input mid-keystroke.
 function pickTierEditorRow(idx){
   tierEditor.pickedIdx = idx;
-  renderTierEditor();
+  document.querySelectorAll('#tier-editor-list .tier-editor-row').forEach((row, i) => {
+    row.classList.toggle('picked', i === idx);
+  });
 }
 function moveTierEditor(idx, dir){
   const newIdx = idx + dir;
@@ -1710,87 +1719,108 @@ function renderViewCanvas(){
   const canvas = $("view-canvas");
   const ctx = canvas.getContext("2d");
 
-  const tile = 140;             // size of each item tile in view
-  const gap = 8;
-  const labelW = 140;
-  const padding = 16;
-  const titleH = 0;             // optional title; skipped
+  const TILE_H = 200;     // every tile is rendered at this height; width = TILE_H * aspect
+  const GAP = 6;
+  const LABEL_W = 160;
+  const PAD = 16;
+  const ROW_GAP = 4;
 
-  // Determine width based on max items in any row, capped reasonably
-  let maxItemsInRow = 1;
-  for(const t of state.tiers){
-    const ids = state.tier_items[t.name] || [];
-    if(ids.length > maxItemsInRow) maxItemsInRow = ids.length;
+  // Make sure every image is loaded before measuring — otherwise we don't know aspect ratios.
+  const allItems = Object.values(state.items);
+  for(const it of allItems) imageForView(it.image_png_b64);
+  const allLoaded = allItems.every(it => {
+    const img = imageForView(it.image_png_b64);
+    return img && img.complete && img.naturalWidth > 0;
+  });
+  if(!allLoaded){
+    // Show a placeholder while images stream in; renderViewCanvas() will fire again on each load.
+    canvas.width = 1; canvas.height = 1;
+    return;
   }
-  // Cap at column count to keep it readable; on overflow we wrap.
-  const colCap = Math.max(4, Math.min(8, maxItemsInRow));
-  const contentW = colCap * tile + (colCap - 1) * gap;
-  const W = padding*2 + labelW + gap + contentW;
 
-  // Compute heights per tier (with wrapping)
-  const rowHeights = state.tiers.map(t => {
-    const n = (state.tier_items[t.name] || []).length;
-    const rows = Math.max(1, Math.ceil(n / colCap));
-    return Math.max(tile, rows * tile + (rows - 1) * gap) + gap*2;
+  // Compute the width of each tier row at its native aspect ratio.
+  const rowWidths = state.tiers.map(t => {
+    const ids = state.tier_items[t.name] || [];
+    if(ids.length === 0) return 0;
+    let w = 0;
+    for(let j = 0; j < ids.length; j++){
+      const it = state.items[ids[j]];
+      if(!it) continue;
+      const img = imageForView(it.image_png_b64);
+      if(!img) continue;
+      const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
+      w += tileW;
+      if(j < ids.length - 1) w += GAP;
+    }
+    return w;
   });
 
-  const totalRowsH = rowHeights.reduce((a,b) => a + b, 0) + (state.tiers.length - 1) * 4;
-  const H = padding*2 + titleH + totalRowsH;
+  // Content width = widest tier row (canvas grows wider if needed).
+  const contentW = Math.max(TILE_H, ...rowWidths, 0);
+  const W = PAD*2 + LABEL_W + GAP + contentW;
 
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
+  // Each tier is a single row of fixed height.
+  const rowH = TILE_H + GAP*2;
+  const totalRowsH = rowH * state.tiers.length + ROW_GAP * Math.max(0, state.tiers.length - 1);
+  const H = PAD*2 + totalRowsH;
+
+  // Cap dpr for very wide canvases to avoid hitting browser canvas-size limits.
+  let dpr = window.devicePixelRatio || 1;
+  const MAX_BACKING = 8192;
+  if(W * dpr > MAX_BACKING) dpr = MAX_BACKING / W;
+  if(H * dpr > MAX_BACKING) dpr = Math.min(dpr, MAX_BACKING / H);
+
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // BG
   ctx.fillStyle = "#1c1c1c";
   ctx.fillRect(0, 0, W, H);
 
-  let y = padding;
+  let y = PAD;
   for(let i = 0; i < state.tiers.length; i++){
     const t = state.tiers[i];
-    const rh = rowHeights[i];
-    // Label
+
+    // Tier label
     ctx.fillStyle = t.color;
-    ctx.fillRect(padding, y, labelW, rh);
+    ctx.fillRect(PAD, y, LABEL_W, rowH);
     ctx.fillStyle = fgFor(t.color);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     let fs = 28;
     ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
-    while(ctx.measureText(t.name).width > labelW - 12 && fs > 10){
+    while(ctx.measureText(t.name).width > LABEL_W - 12 && fs > 10){
       fs -= 1;
       ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
     }
-    // Word-wrap label vertically if very long
-    const labelLines = wrapLines(ctx, t.name, labelW - 12);
+    const labelLines = wrapLines(ctx, t.name, LABEL_W - 12);
     const lineH = fs * 1.1;
-    const lblStartY = y + rh/2 - ((labelLines.length-1) * lineH)/2;
+    const lblStartY = y + rowH/2 - ((labelLines.length - 1) * lineH)/2;
     labelLines.forEach((line, li) => {
-      ctx.fillText(line, padding + labelW/2, lblStartY + li*lineH);
+      ctx.fillText(line, PAD + LABEL_W/2, lblStartY + li * lineH);
     });
 
-    // Items area
+    // Tier content background — only as wide as the actual row, with the rest of the canvas
+    // staying at the page background. This keeps short tiers visually clean.
     ctx.fillStyle = "#0f0f0f";
-    ctx.fillRect(padding + labelW + gap, y, contentW, rh);
+    ctx.fillRect(PAD + LABEL_W + GAP, y, contentW, rowH);
 
+    // Draw tiles in a single row, native aspect.
     const ids = state.tier_items[t.name] || [];
+    let x = PAD + LABEL_W + GAP;
     for(let j = 0; j < ids.length; j++){
       const it = state.items[ids[j]];
       if(!it) continue;
-      const col = j % colCap;
-      const row = Math.floor(j / colCap);
-      const ix = padding + labelW + gap + col * (tile + gap);
-      const iy = y + gap + row * (tile + gap);
       const img = imageForView(it.image_png_b64);
-      if(img){
-        ctx.drawImage(img, ix, iy, tile, tile);
-      }
+      if(!img) continue;
+      const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
+      ctx.drawImage(img, x, y + GAP, tileW, TILE_H);
+      x += tileW + GAP;
     }
 
-    y += rh + 4;
+    y += rowH + ROW_GAP;
   }
 }
 
