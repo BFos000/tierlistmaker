@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f0f">
+<title>Tiermaker</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #222;
+    --border: #2a2a2a;
+    --fg: #e8e8e8;
+    --muted: #999;
+    --accent: #4a9eff;
+    --danger: #ff5555;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    height: 100%;
+  }
+  body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+  button {
+    background: var(--bg3); color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  button:active { background: #333; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  input[type="text"], input[type="number"] {
+    background: var(--bg2); color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    width: 100%;
+  }
+  input[type="range"] { width: 100%; }
+
+  /* Top bar */
+  header.topbar {
+    display: flex;
+    gap: 6px;
+    padding: calc(var(--safe-top) + 8px) 8px 8px 8px;
+    background: #181818;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    position: sticky; top: 0; z-index: 50;
+  }
+  header.topbar button { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; }
+  header.topbar .zoom-wrap {
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0; min-width: 130px;
+  }
+  header.topbar .zoom-wrap input { width: 100px; }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: calc(var(--safe-bottom) + 16px);
+  }
+
+  /* Tier rows */
+  .tier-row {
+    display: flex;
+    align-items: stretch;
+    margin: 0 6px 4px 6px;
+    background: var(--bg2);
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 80px;
+  }
+  .tier-label {
+    width: 80px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: 800;
+    color: #000;
+    padding: 6px;
+    word-break: break-word;
+    font-size: 14px;
+    line-height: 1.15;
+    cursor: pointer;
+  }
+  .tier-list {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    padding: 6px;
+    background: var(--bg2);
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+
+  /* Pool */
+  .pool-section {
+    margin: 12px 6px 6px 6px;
+    background: var(--bg2);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  .pool-section h2 {
+    margin: 0 0 6px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pool-section .thumb-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    min-height: 60px;
+  }
+
+  .empty-hint {
+    color: #555;
+    font-size: 12px;
+    padding: 12px;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Item thumbnails */
+  .thumb {
+    width: var(--thumb-size, 110px);
+    height: var(--thumb-size, 110px);
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    position: relative;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+    touch-action: pan-y;
+  }
+  .thumb.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(74,158,255,0.4);
+    transform: scale(1.04);
+  }
+  .thumb.dragging { opacity: 0.3; }
+  .drop-target {
+    outline: 2px dashed var(--accent);
+    outline-offset: -4px;
+  }
+
+  /* Drag ghost */
+  #drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    opacity: 0.92;
+    display: none;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    display: none;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: #181818;
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    overflow: hidden;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-header h2 { margin: 0; font-size: 16px; }
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .modal-footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .modal-footer button { flex: 1; }
+
+  /* Cropper */
+  .cropper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    touch-action: none;
+    margin-bottom: 12px;
+  }
+  .cropper canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .cropper-hint {
+    position: absolute;
+    top: 8px; left: 8px; right: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+    text-align: center;
+  }
+  .cropper-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+  .preview-thumb {
+    width: 110px; height: 110px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 6px;
+    background-color: #000;
+    border: 1px solid var(--border);
+  }
+
+  /* Tier editor */
+  .tier-editor-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+    background: var(--bg2);
+    padding: 6px;
+    border-radius: 6px;
+  }
+  .tier-editor-row .name-input { flex: 1; }
+  .tier-editor-row .swatch {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .tier-editor-row .reorder { font-size: 18px; padding: 6px 8px; }
+  .tier-editor-row .delete { color: var(--danger); border-color: var(--danger); }
+
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .swatch-grid > div {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 1px solid #333;
+    cursor: pointer;
+  }
+  .swatch-grid > div.active {
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  /* View mode */
+  #view-canvas-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  #view-canvas {
+    max-width: 100%;
+    height: auto;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  /* Form rows */
+  .field {
+    margin-bottom: 12px;
+  }
+  .field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .field-inline { display: flex; align-items: center; gap: 10px; }
+  .field-inline > * { margin-bottom: 0; }
+
+  /* Action sheet */
+  .sheet-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet-backdrop.open { display: flex; }
+  .sheet {
+    background: #1f1f1f;
+    width: 100%;
+    max-width: 500px;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    padding: 8px;
+    padding-bottom: calc(var(--safe-bottom) + 8px);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sheet button {
+    padding: 14px;
+    text-align: center;
+    font-size: 16px;
+    background: #2a2a2a;
+  }
+  .sheet button.cancel { margin-top: 6px; background: #181818; }
+
+  .toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 20px;
+    z-index: 500;
+    font-size: 14px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* hide native file inputs */
+  .hidden-input { display: none; }
+
+  /* selected item indicator at top */
+  .selected-banner {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 12px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .selected-banner.show { display: flex; }
+  .selected-banner .mini-thumb {
+    width: 30px; height: 30px;
+    border-radius: 4px;
+    background-size: cover;
+    background-position: center;
+  }
+  .selected-banner button {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button id="btn-add">＋ Item</button>
+  <button id="btn-tiers">Tiers</button>
+  <button id="btn-view">View</button>
+  <button id="btn-save">Save</button>
+  <button id="btn-load-trigger">Load</button>
+  <input type="file" id="btn-load" class="hidden-input" accept=".json,application/json">
+  <span class="zoom-wrap">
+    <span style="color:#999;font-size:12px;">size</span>
+    <input type="range" id="zoom" min="60" max="220" value="110" step="10">
+  </span>
+</header>
+
+<div class="selected-banner" id="selected-banner">
+  <div class="mini-thumb" id="selected-mini"></div>
+  <span id="selected-text" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tap a tier or pool to place</span>
+  <button id="btn-more">⋯</button>
+  <button id="btn-deselect">Cancel</button>
+</div>
+
+<main id="main">
+  <section id="tiers"></section>
+  <section class="pool-section">
+    <h2><span>POOL · UNRANKED</span> <span id="pool-count" style="color:#666;font-weight:400;text-transform:none;letter-spacing:0;"></span></h2>
+    <div id="pool" class="thumb-list" data-target="pool"></div>
+  </section>
+</main>
+
+<div id="drag-ghost"></div>
+
+<!-- Add item modal -->
+<div class="modal-backdrop" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>New Item</h2>
+      <button onclick="closeModal('modal-add')">✕</button>
+    </div>
+    <div class="modal-body">
+      <button id="btn-pick-photo" class="primary" style="width:100%; margin-bottom: 12px;">Choose Photo</button>
+      <input type="file" id="file-photo" class="hidden-input" accept="image/*">
+
+      <div class="cropper" id="cropper">
+        <canvas id="crop-canvas"></canvas>
+        <div class="cropper-hint" id="cropper-hint">Pick a photo to begin · drag to pan, pinch to zoom</div>
+      </div>
+
+      <div class="field">
+        <label>Label text</label>
+        <input type="text" id="item-text" placeholder="(optional)" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>Outline thickness: <span id="thickness-val">6</span></label>
+        <input type="range" id="item-thickness" min="0" max="24" value="6">
+      </div>
+
+      <div class="field">
+        <label>Preview (220×220)</label>
+        <div class="preview-thumb" id="preview-thumb"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-add')">Cancel</button>
+      <button id="btn-add-confirm" class="primary">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit tiers modal -->
+<div class="modal-backdrop" id="modal-tiers">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Edit Tiers</h2>
+      <button onclick="closeModal('modal-tiers')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="tier-editor-list"></div>
+      <button id="btn-add-tier" style="width:100%; margin-top: 8px;">+ Add Tier</button>
+      <div style="margin-top: 16px;">
+        <label style="font-size:12px; color: var(--muted); text-transform: uppercase;">Color picker</label>
+        <p style="font-size:12px; color: var(--muted); margin: 4px 0;">Tap a tier swatch above, then a color below.</p>
+        <div class="swatch-grid" id="swatch-grid"></div>
+        <div class="field-inline" style="margin-top:8px;">
+          <input type="text" id="custom-color" placeholder="#RRGGBB" style="font-family: monospace;">
+          <button id="btn-apply-color">Apply</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-tiers')">Cancel</button>
+      <button id="btn-tiers-save" class="primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- View mode modal -->
+<div class="modal-backdrop" id="modal-view">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>View Mode</h2>
+      <button onclick="closeModal('modal-view')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="view-canvas-wrap">
+        <canvas id="view-canvas"></canvas>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="btn-view-share">Save Image</button>
+      <button onclick="closeModal('modal-view')" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Item context sheet -->
+<div class="sheet-backdrop" id="sheet-item">
+  <div class="sheet">
+    <button id="ctx-replace-photo">Replace Photo & Label</button>
+    <button id="ctx-move-pool">Move to Pool</button>
+    <button id="ctx-delete" class="danger">Delete Item</button>
+    <button class="cancel" onclick="closeSheet('sheet-item')">Cancel</button>
+  </div>
+</div>
+
+<!-- Tier context sheet -->
+<div class="sheet-backdrop" id="sheet-tier">
+  <div class="sheet">
+    <button id="ctx-tier-clear">Clear All Items in This Tier</button>
+    <button id="ctx-tier-color">Change Color</button>
+    <button class="cancel" onclick="closeSheet('sheet-tier')">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ----- Constants -----
+const OUTPUT_TILE_SIZE = 220;
+const STORAGE_KEY = "tiermaker_html_autosave_v1";
+const SWATCHES = [
+  "#FF7F7F","#FFBF7F","#FFDF7F","#FFFF7F","#BFFF7F","#7FFF7F","#7FFFDF",
+  "#7FBFFF","#7F7FFF","#BF7FFF","#FF7FFF","#FF7FBF","#FF4D4D","#FF9933",
+  "#FFD633","#E6FF33","#99FF33","#33FF66","#33FFC9","#33A3FF","#335CFF",
+  "#7A33FF","#CC33FF","#FF33A8","#FFFFFF","#E6E6E6","#CCCCCC","#999999",
+  "#666666","#333333","#000000",
+];
+
+// ----- State -----
+const state = {
+  tiers: [
+    { name: "S", color: "#FF7F7F" },
+    { name: "A", color: "#FFBF7F" },
+    { name: "B", color: "#FFFF7F" },
+    { name: "C", color: "#BFFF7F" },
+    { name: "D", color: "#7FBFFF" },
+  ],
+  items: {},        // uid -> { uid, text, image_png_b64, outline_thickness }
+  pool: [],         // [uid, ...]
+  tier_items: {},   // tierName -> [uid, ...]
+  zoom: 110,
+  selected: null,   // uid (selected for tap-to-move)
+  contextUid: null, // uid for context sheet
+  contextTier: null,// tier name for context sheet
+  pickedTierIdx: null, // for tier color editor
+};
+
+state.tiers.forEach(t => state.tier_items[t.name] = []);
+
+// ----- Util -----
+function $(id){ return document.getElementById(id); }
+function uid(){
+  return Math.random().toString(36).slice(2, 12);
+}
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function normalizeHex(s){
+  if(!s) return null;
+  s = s.trim();
+  if(!s.startsWith("#")) s = "#"+s;
+  if(s.length === 4){
+    s = "#" + s[1]+s[1] + s[2]+s[2] + s[3]+s[3];
+  }
+  if(!/^#[0-9A-Fa-f]{6}$/.test(s)) return null;
+  return s.toUpperCase();
+}
+function colorLightness(hex){
+  hex = normalizeHex(hex) || "#888888";
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  // approximate HSL lightness
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  return (max+min)/2;
+}
+function fgFor(bg){
+  return colorLightness(bg) > 160 ? "#000" : "#fff";
+}
+function dataUrl(b64){
+  return "data:image/png;base64," + b64;
+}
+function showToast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ----- Tile rendering (matches python render_tile_no_backing) -----
+function wrapLines(ctx, text, maxWidth){
+  const words = (text||"").split(/\s+/).filter(Boolean);
+  if(words.length === 0) return [];
+  const lines = [];
+  let current = "";
+  for(const w of words){
+    const test = current ? current + " " + w : w;
+    if(ctx.measureText(test).width <= maxWidth || !current){
+      current = test;
+    } else {
+      lines.push(current);
+      current = w;
+    }
+  }
+  if(current) lines.push(current);
+  return lines;
+}
+
+function renderTile(srcCanvas, text, outlineThickness){
+  // srcCanvas: a canvas with the cropped square image at OUTPUT_TILE_SIZE
+  const out = document.createElement("canvas");
+  out.width = OUTPUT_TILE_SIZE;
+  out.height = OUTPUT_TILE_SIZE;
+  const ctx = out.getContext("2d");
+  ctx.drawImage(srcCanvas, 0, 0, OUTPUT_TILE_SIZE, OUTPUT_TILE_SIZE);
+
+  text = (text || "").trim();
+  if(!text){
+    return out;
+  }
+
+  const w = OUTPUT_TILE_SIZE, h = OUTPUT_TILE_SIZE;
+  const padX = Math.max(8, Math.floor(w/40));
+  const padY = Math.max(6, Math.floor(h/50));
+  const regionTop = Math.floor(h * 0.66);
+  const regionH = h - regionTop;
+  const maxW = w - 2*padX;
+  const maxH = regionH - 2*padY;
+
+  let fs = Math.max(10, Math.floor(h * 0.12));
+  let lines = [];
+  while(fs > 8){
+    ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
+    lines = wrapLines(ctx, text, maxW);
+    const lineH = fs * 1.1;
+    const totalH = lines.length * lineH;
+    if(totalH <= maxH) break;
+    fs -= 1;
+  }
+  ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
+  lines = wrapLines(ctx, text, maxW);
+  const lineH = fs * 1.1;
+  const totalH = lines.length * lineH;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const t = Math.max(0, Math.min(24, outlineThickness|0));
+  const cx = w/2;
+  const startY = regionTop + padY + (maxH - totalH)/2 + lineH/2;
+
+  if(t > 0){
+    ctx.lineWidth = t;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#000";
+    lines.forEach((line, i) => {
+      ctx.strokeText(line, cx, startY + i*lineH);
+    });
+  }
+  ctx.fillStyle = "#fff";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, cx, startY + i*lineH);
+  });
+
+  return out;
+}
+
+function canvasToPngB64(canvas){
+  const url = canvas.toDataURL("image/png");
+  const idx = url.indexOf(",");
+  return url.slice(idx+1);
+}
+
+// ----- Rendering UI -----
+function renderTiers(){
+  const root = $("tiers");
+  root.innerHTML = "";
+  for(const t of state.tiers){
+    const row = document.createElement("div");
+    row.className = "tier-row";
+    row.dataset.tier = t.name;
+
+    const label = document.createElement("div");
+    label.className = "tier-label";
+    label.textContent = t.name;
+    label.style.background = t.color;
+    label.style.color = fgFor(t.color);
+    label.addEventListener("click", () => onTierLabelTap(t.name));
+    label.addEventListener("contextmenu", e => { e.preventDefault(); openTierContext(t.name); });
+
+    const list = document.createElement("div");
+    list.className = "tier-list";
+    list.dataset.target = "tier:" + t.name;
+
+    row.appendChild(label);
+    row.appendChild(list);
+    root.appendChild(row);
+  }
+  renderItems();
+}
+
+function renderItems(){
+  // Apply zoom
+  document.documentElement.style.setProperty("--thumb-size", state.zoom + "px");
+
+  // Pool
+  const pool = $("pool");
+  pool.innerHTML = "";
+  for(const id of state.pool){
+    const it = state.items[id];
+    if(it) pool.appendChild(makeThumb(it));
+  }
+  if(state.pool.length === 0){
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = "Pool is empty — tap ＋ Item to add.";
+    pool.appendChild(hint);
+  }
+  $("pool-count").textContent = state.pool.length ? `(${state.pool.length})` : "";
+
+  // Tiers
+  const tierLists = document.querySelectorAll('#tiers [data-target]');
+  const tierListByName = new Map();
+  tierLists.forEach(el => {
+    const k = el.dataset.target.startsWith("tier:") ? el.dataset.target.slice(5) : null;
+    if(k !== null) tierListByName.set(k, el);
+  });
+  for(const t of state.tiers){
+    const list = tierListByName.get(t.name);
+    if(!list) continue;
+    list.innerHTML = "";
+    const ids = state.tier_items[t.name] || [];
+    for(const id of ids){
+      const it = state.items[id];
+      if(it) list.appendChild(makeThumb(it));
+    }
+    if(ids.length === 0){
+      const hint = document.createElement("div");
+      hint.className = "empty-hint";
+      hint.textContent = state.selected ? "Tap to drop here" : "";
+      list.appendChild(hint);
+    }
+  }
+
+  updateSelectionBanner();
+}
+
+function cssEscape(s){
+  return (s||"").replace(/["\\]/g, "\\$&");
+}
+
+function makeThumb(item){
+  const el = document.createElement("div");
+  el.className = "thumb";
+  el.dataset.uid = item.uid;
+  el.style.backgroundImage = `url("${dataUrl(item.image_png_b64)}")`;
+  if(item.text) el.title = item.text;
+  if(state.selected === item.uid) el.classList.add("selected");
+  attachThumbHandlers(el);
+  return el;
+}
+
+function updateSelectionBanner(){
+  const banner = $("selected-banner");
+  if(state.selected && state.items[state.selected]){
+    const it = state.items[state.selected];
+    $("selected-mini").style.backgroundImage = `url("${dataUrl(it.image_png_b64)}")`;
+    $("selected-text").textContent = it.text ? `"${it.text}" — tap a tier or pool to place` : "Tap a tier or pool to place";
+    banner.classList.add("show");
+  } else {
+    banner.classList.remove("show");
+  }
+}
+
+// ----- Selection / placement -----
+function selectItem(uidv){
+  state.selected = (state.selected === uidv) ? null : uidv;
+  renderItems();
+}
+function deselect(){
+  state.selected = null;
+  renderItems();
+}
+function placeSelectedTo(targetType, tierName){
+  if(!state.selected) return;
+  const u = state.selected;
+  removeFromAll(u);
+  if(targetType === "pool"){
+    state.pool.push(u);
+  } else if(targetType === "tier"){
+    if(!state.tier_items[tierName]) state.tier_items[tierName] = [];
+    state.tier_items[tierName].push(u);
+  }
+  state.selected = null;
+  scheduleSave();
+  renderItems();
+}
+function removeFromAll(uidv){
+  state.pool = state.pool.filter(x => x !== uidv);
+  for(const k of Object.keys(state.tier_items)){
+    state.tier_items[k] = state.tier_items[k].filter(x => x !== uidv);
+  }
+}
+
+function onTierLabelTap(tierName){
+  if(state.selected){
+    placeSelectedTo("tier", tierName);
+  } else {
+    openTierContext(tierName);
+  }
+}
+
+// ----- Drag & drop (Pointer Events) -----
+const drag = {
+  active: false,
+  uid: null,
+  pressTimer: null,
+  startX: 0, startY: 0,
+  pointerId: null,
+  fromEl: null,
+};
+
+function attachThumbHandlers(el){
+  el.addEventListener("pointerdown", onThumbPointerDown);
+}
+
+function onThumbPointerDown(e){
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+  const el = e.currentTarget;
+  const uidv = el.dataset.uid;
+
+  drag.startX = e.clientX;
+  drag.startY = e.clientY;
+  drag.pointerId = e.pointerId;
+  drag.fromEl = el;
+  drag.uid = uidv;
+  drag.active = false;
+
+  // Long-press → drag mode
+  clearTimeout(drag.pressTimer);
+  drag.pressTimer = setTimeout(() => {
+    if(drag.pointerId !== null){
+      beginDrag(uidv, drag.startX, drag.startY);
+    }
+  }, 320);
+
+  el.addEventListener("pointermove", onThumbPointerMove);
+  el.addEventListener("pointerup", onThumbPointerUp);
+  el.addEventListener("pointercancel", onThumbPointerCancel);
+  // Long-press tap = context menu via timer 700ms only if not moved & not dragging — but we use double role; instead use separate touch hold
+}
+
+function onThumbPointerMove(e){
+  if(e.pointerId !== drag.pointerId) return;
+  const dx = e.clientX - drag.startX;
+  const dy = e.clientY - drag.startY;
+  const dist = Math.hypot(dx, dy);
+
+  if(!drag.active){
+    if(dist > 10){
+      // Movement before long-press — cancel drag intention; allow scroll
+      clearTimeout(drag.pressTimer);
+      drag.pressTimer = null;
+      drag.pointerId = null;
+      cleanupDragHandlers(e.currentTarget);
+    }
+    return;
+  }
+  // Active drag — update ghost
+  e.preventDefault();
+  updateGhost(e.clientX, e.clientY);
+  highlightTarget(e.clientX, e.clientY);
+}
+
+function onThumbPointerUp(e){
+  if(e.pointerId !== drag.pointerId) return;
+  const wasActive = drag.active;
+  const fromEl = drag.fromEl;
+
+  if(drag.active){
+    const target = pickTarget(e.clientX, e.clientY);
+    if(target && drag.uid){
+      removeFromAll(drag.uid);
+      if(target.type === "pool"){
+        state.pool.push(drag.uid);
+      } else {
+        if(!state.tier_items[target.tier]) state.tier_items[target.tier] = [];
+        state.tier_items[target.tier].push(drag.uid);
+      }
+      scheduleSave();
+    }
+    endDrag();
+    renderItems();
+  } else {
+    // It was a tap — short tap toggles selection; if it was actually a long press without move, we'd be in drag.
+    // Distinguish quick tap vs long-press menu: we'll use double-tap-time? Simpler: any tap that didn't enter drag = select toggle.
+    clearTimeout(drag.pressTimer);
+    if(drag.uid){
+      // Quick tap = select/deselect or place if something else selected
+      if(state.selected && state.selected !== drag.uid){
+        // place selected before this item — actually nicer: just select the new one
+        state.selected = drag.uid;
+      } else {
+        state.selected = (state.selected === drag.uid) ? null : drag.uid;
+      }
+      renderItems();
+    }
+  }
+
+  cleanupDragHandlers(fromEl);
+  drag.pointerId = null;
+  drag.uid = null;
+  drag.fromEl = null;
+}
+
+function onThumbPointerCancel(e){
+  if(e.pointerId !== drag.pointerId) return;
+  clearTimeout(drag.pressTimer);
+  endDrag();
+  cleanupDragHandlers(drag.fromEl);
+  drag.pointerId = null;
+  drag.uid = null;
+  drag.fromEl = null;
+  renderItems();
+}
+
+function cleanupDragHandlers(el){
+  if(!el) return;
+  el.removeEventListener("pointermove", onThumbPointerMove);
+  el.removeEventListener("pointerup", onThumbPointerUp);
+  el.removeEventListener("pointercancel", onThumbPointerCancel);
+}
+
+function beginDrag(uidv, x, y){
+  drag.active = true;
+  const it = state.items[uidv];
+  if(!it) return;
+  // Haptic-ish feedback
+  if(navigator.vibrate) navigator.vibrate(20);
+  const ghost = $("drag-ghost");
+  ghost.style.display = "block";
+  ghost.style.width = state.zoom + "px";
+  ghost.style.height = state.zoom + "px";
+  ghost.style.backgroundImage = `url("${dataUrl(it.image_png_b64)}")`;
+  updateGhost(x, y);
+  if(drag.fromEl) drag.fromEl.classList.add("dragging");
+  // Capture pointer to keep events on the source element
+  if(drag.fromEl && drag.pointerId !== null){
+    try { drag.fromEl.setPointerCapture(drag.pointerId); } catch(_){}
+  }
+  document.body.style.overflow = "hidden";
+}
+
+function updateGhost(x, y){
+  const g = $("drag-ghost");
+  g.style.left = x + "px";
+  g.style.top = y + "px";
+}
+
+function endDrag(){
+  drag.active = false;
+  $("drag-ghost").style.display = "none";
+  document.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
+  document.body.style.overflow = "";
+}
+
+function pickTarget(x, y){
+  // Hide ghost briefly to find element under
+  const g = $("drag-ghost");
+  const wasDisplay = g.style.display;
+  g.style.display = "none";
+  const el = document.elementFromPoint(x, y);
+  g.style.display = wasDisplay;
+  if(!el) return null;
+  const container = el.closest("[data-target]");
+  if(!container) return null;
+  const tgt = container.dataset.target;
+  if(tgt === "pool") return { type: "pool" };
+  if(tgt.startsWith("tier:")) return { type: "tier", tier: tgt.slice(5) };
+  return null;
+}
+
+function highlightTarget(x, y){
+  document.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
+  const g = $("drag-ghost");
+  const wasDisplay = g.style.display;
+  g.style.display = "none";
+  const el = document.elementFromPoint(x, y);
+  g.style.display = wasDisplay;
+  if(!el) return;
+  const container = el.closest("[data-target]");
+  if(container) container.classList.add("drop-target");
+}
+
+// ----- Context menu (long-press) -----
+let longPressTimer = null;
+document.addEventListener("contextmenu", e => {
+  // Disable native right-click menu (e.g., desktop)
+  const el = e.target.closest(".thumb");
+  if(el){
+    e.preventDefault();
+    openItemContext(el.dataset.uid);
+  }
+});
+
+// Context sheet is reached via the "⋯" button in the selected-banner.
+function attachContextHold(){ /* no-op, retained for future use */ }
+
+// Tap pool / tier list (empty area) to place selected
+function attachContainerTap(){
+  document.addEventListener("click", e => {
+    if(drag.active) return;
+    const target = e.target.closest("[data-target]");
+    if(!target) return;
+    if(e.target.closest(".thumb")) return; // clicked an item
+    if(!state.selected) return;
+    const t = target.dataset.target;
+    if(t === "pool") placeSelectedTo("pool");
+    else if(t.startsWith("tier:")) placeSelectedTo("tier", t.slice(5));
+  });
+}
+
+// ----- Item context sheet -----
+function openItemContext(uidv){
+  state.contextUid = uidv;
+  openSheet("sheet-item");
+}
+$("ctx-replace-photo").addEventListener("click", () => {
+  closeSheet("sheet-item");
+  if(!state.contextUid) return;
+  openEditModal(state.contextUid, true);
+});
+$("ctx-move-pool").addEventListener("click", () => {
+  closeSheet("sheet-item");
+  if(!state.contextUid) return;
+  removeFromAll(state.contextUid);
+  state.pool.push(state.contextUid);
+  state.contextUid = null;
+  scheduleSave();
+  renderItems();
+});
+$("ctx-delete").addEventListener("click", () => {
+  const u = state.contextUid;
+  closeSheet("sheet-item");
+  if(!u) return;
+  if(!confirm("Delete this item permanently?")) return;
+  removeFromAll(u);
+  delete state.items[u];
+  if(state.selected === u) state.selected = null;
+  scheduleSave();
+  renderItems();
+});
+
+// ----- Tier context sheet -----
+function openTierContext(tierName){
+  state.contextTier = tierName;
+  openSheet("sheet-tier");
+}
+$("ctx-tier-clear").addEventListener("click", () => {
+  closeSheet("sheet-tier");
+  const t = state.contextTier;
+  if(!t) return;
+  const ids = state.tier_items[t] || [];
+  if(ids.length === 0) return;
+  if(!confirm(`Move all ${ids.length} items from "${t}" back to pool?`)) return;
+  for(const id of ids){
+    if(!state.pool.includes(id)) state.pool.push(id);
+  }
+  state.tier_items[t] = [];
+  scheduleSave();
+  renderItems();
+});
+$("ctx-tier-color").addEventListener("click", () => {
+  closeSheet("sheet-tier");
+  openTiersModal();
+  // Auto-select that tier in editor
+  const idx = state.tiers.findIndex(t => t.name === state.contextTier);
+  if(idx >= 0){
+    setTimeout(() => pickTierEditorRow(idx), 50);
+  }
+});
+
+// ----- Modal management -----
+function openModal(id){ $(id).classList.add("open"); }
+function closeModal(id){ $(id).classList.remove("open"); }
+function openSheet(id){ $(id).classList.add("open"); }
+function closeSheet(id){ $(id).classList.remove("open"); }
+
+document.querySelectorAll(".modal-backdrop, .sheet-backdrop").forEach(b => {
+  b.addEventListener("click", e => {
+    if(e.target === b) {
+      b.classList.remove("open");
+    }
+  });
+});
+
+// ----- Save / Load -----
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistLocal, 300);
+}
+function buildPayload(){
+  const itemsOut = {};
+  for(const [k,v] of Object.entries(state.items)){
+    itemsOut[k] = {
+      uid: v.uid,
+      text: v.text || "",
+      image_png_b64: v.image_png_b64,
+      outline_thickness: v.outline_thickness | 0,
+    };
+  }
+  return {
+    version: 2,
+    tiers: state.tiers.map(t => ({ name: t.name, color: t.color })),
+    items: itemsOut,
+    pool: [...state.pool],
+    tier_items: Object.fromEntries(state.tiers.map(t => [t.name, [...(state.tier_items[t.name]||[])]])),
+    zoom: state.zoom,
+  };
+}
+function persistLocal(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload()));
+  } catch(e){
+    showToast("Local autosave failed (storage full?)");
+  }
+}
+function loadFromLocal(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    applyPayload(JSON.parse(raw));
+    return true;
+  } catch(e){ return false; }
+}
+function applyPayload(p){
+  if(!p || typeof p !== "object") return;
+  state.tiers = (p.tiers || []).map(t => ({ name: t.name, color: normalizeHex(t.color) || "#888888" }));
+  if(state.tiers.length === 0){
+    state.tiers = [{name:"S", color:"#FF7F7F"}];
+  }
+  state.items = {};
+  for(const [k,v] of Object.entries(p.items || {})){
+    state.items[k] = {
+      uid: v.uid || k,
+      text: v.text || "",
+      image_png_b64: v.image_png_b64 || "",
+      outline_thickness: (v.outline_thickness ?? 6) | 0,
+    };
+  }
+  state.tier_items = {};
+  for(const t of state.tiers){
+    state.tier_items[t.name] = [];
+  }
+  for(const [name, ids] of Object.entries(p.tier_items || {})){
+    if(!state.tier_items[name]) state.tier_items[name] = [];
+    for(const id of (ids||[])){
+      if(state.items[id]) state.tier_items[name].push(id);
+    }
+  }
+  state.pool = [];
+  for(const id of (p.pool||[])){
+    if(state.items[id]) state.pool.push(id);
+  }
+  // Any items not placed anywhere → pool
+  const placed = new Set();
+  for(const ids of Object.values(state.tier_items)) ids.forEach(id => placed.add(id));
+  state.pool.forEach(id => placed.add(id));
+  for(const id of Object.keys(state.items)){
+    if(!placed.has(id)) state.pool.push(id);
+  }
+  state.zoom = p.zoom || 110;
+  if(state.zoom < 60) state.zoom = 60;
+  if(state.zoom > 220) state.zoom = 220;
+  $("zoom").value = state.zoom;
+  state.selected = null;
+}
+
+$("btn-save").addEventListener("click", () => {
+  const payload = buildPayload();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.download = `tierlist_${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast("Saved (check Files / Downloads)");
+});
+
+$("btn-load-trigger").addEventListener("click", () => $("btn-load").click());
+$("btn-load").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try {
+    const text = await file.text();
+    const p = JSON.parse(text);
+    if(!confirm("Loading will replace your current tier list. Continue?")) return;
+    applyPayload(p);
+    persistLocal();
+    renderTiers();
+    showToast("Loaded");
+  } catch(err){
+    alert("Failed to load: " + err.message);
+  } finally {
+    e.target.value = "";
+  }
+});
+
+// ----- Zoom -----
+$("zoom").addEventListener("input", e => {
+  state.zoom = parseInt(e.target.value, 10);
+  document.documentElement.style.setProperty("--thumb-size", state.zoom + "px");
+  scheduleSave();
+});
+
+// ----- Add item modal & cropper -----
+const cropper = {
+  canvas: null,
+  ctx: null,
+  img: null,        // HTMLImageElement
+  scale: 1,
+  minScale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  pointers: new Map(),
+  lastPinchDist: 0,
+  lastMid: null,
+  editingUid: null, // when editing existing item
+};
+
+function setupCropper(){
+  const canvas = $("crop-canvas");
+  const wrap = $("cropper");
+  cropper.canvas = canvas;
+  cropper.ctx = canvas.getContext("2d");
+
+  function resize(){
+    const rect = wrap.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(rect.width * window.devicePixelRatio));
+    canvas.height = Math.max(1, Math.floor(rect.height * window.devicePixelRatio));
+    drawCropper();
+  }
+  new ResizeObserver(resize).observe(wrap);
+
+  wrap.addEventListener("pointerdown", onCropperDown);
+  wrap.addEventListener("pointermove", onCropperMove);
+  wrap.addEventListener("pointerup", onCropperUp);
+  wrap.addEventListener("pointercancel", onCropperUp);
+  wrap.addEventListener("wheel", e => {
+    if(!cropper.img) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1/1.1;
+    const rect = wrap.getBoundingClientRect();
+    zoomCropper(factor, e.clientX - rect.left, e.clientY - rect.top);
+  }, { passive: false });
+}
+
+function onCropperDown(e){
+  if(!cropper.img) return;
+  const wrap = $("cropper");
+  wrap.setPointerCapture(e.pointerId);
+  const rect = wrap.getBoundingClientRect();
+  cropper.pointers.set(e.pointerId, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+  cropper.lastPinchDist = 0;
+  cropper.lastMid = null;
+}
+function onCropperMove(e){
+  if(!cropper.img) return;
+  if(!cropper.pointers.has(e.pointerId)) return;
+  e.preventDefault();
+  const wrap = $("cropper");
+  const rect = wrap.getBoundingClientRect();
+  const cur = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const prev = cropper.pointers.get(e.pointerId);
+
+  if(cropper.pointers.size === 1){
+    // Pan
+    const dx = (cur.x - prev.x) * window.devicePixelRatio;
+    const dy = (cur.y - prev.y) * window.devicePixelRatio;
+    cropper.offsetX += dx;
+    cropper.offsetY += dy;
+    clampOffset();
+    drawCropper();
+  } else if(cropper.pointers.size === 2){
+    // Pinch
+    cropper.pointers.set(e.pointerId, cur);
+    const pts = [...cropper.pointers.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const mid = { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 };
+    if(cropper.lastPinchDist > 0){
+      const factor = dist / cropper.lastPinchDist;
+      zoomCropper(factor, mid.x, mid.y);
+    }
+    cropper.lastPinchDist = dist;
+    cropper.lastMid = mid;
+    return;
+  }
+  cropper.pointers.set(e.pointerId, cur);
+}
+function onCropperUp(e){
+  cropper.pointers.delete(e.pointerId);
+  cropper.lastPinchDist = 0;
+}
+
+function zoomCropper(factor, anchorX, anchorY){
+  // anchorX/Y in CSS px relative to wrap
+  const newScale = Math.max(cropper.minScale, Math.min(cropper.minScale * 8, cropper.scale * factor));
+  const realFactor = newScale / cropper.scale;
+  // anchor in canvas px
+  const ax = anchorX * window.devicePixelRatio;
+  const ay = anchorY * window.devicePixelRatio;
+  cropper.offsetX = ax - (ax - cropper.offsetX) * realFactor;
+  cropper.offsetY = ay - (ay - cropper.offsetY) * realFactor;
+  cropper.scale = newScale;
+  clampOffset();
+  drawCropper();
+  updatePreview();
+}
+
+function clampOffset(){
+  if(!cropper.img || !cropper.canvas) return;
+  const cw = cropper.canvas.width;
+  const ch = cropper.canvas.height;
+  const iw = cropper.img.naturalWidth * cropper.scale;
+  const ih = cropper.img.naturalHeight * cropper.scale;
+  // Image must always cover full canvas (since canvas is the crop area)
+  // offsetX is the top-left of the image; allow image edges no further inward than canvas edge
+  const minX = cw - iw, minY = ch - ih;
+  if(iw <= cw){
+    cropper.offsetX = (cw - iw)/2;
+  } else {
+    if(cropper.offsetX > 0) cropper.offsetX = 0;
+    if(cropper.offsetX < minX) cropper.offsetX = minX;
+  }
+  if(ih <= ch){
+    cropper.offsetY = (ch - ih)/2;
+  } else {
+    if(cropper.offsetY > 0) cropper.offsetY = 0;
+    if(cropper.offsetY < minY) cropper.offsetY = minY;
+  }
+}
+
+function drawCropper(){
+  const ctx = cropper.ctx;
+  const c = cropper.canvas;
+  if(!ctx || !c) return;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, c.width, c.height);
+  if(cropper.img){
+    const iw = cropper.img.naturalWidth * cropper.scale;
+    const ih = cropper.img.naturalHeight * cropper.scale;
+    ctx.drawImage(cropper.img, cropper.offsetX, cropper.offsetY, iw, ih);
+  }
+}
+
+function loadCropperImage(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        cropper.img = img;
+        // Initial scale: cover
+        const cw = cropper.canvas.width;
+        const ch = cropper.canvas.height;
+        cropper.minScale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+        cropper.scale = cropper.minScale;
+        cropper.offsetX = (cw - img.naturalWidth * cropper.scale) / 2;
+        cropper.offsetY = (ch - img.naturalHeight * cropper.scale) / 2;
+        drawCropper();
+        $("cropper-hint").style.display = "none";
+        updatePreview();
+        resolve();
+      };
+      img.onerror = reject;
+      img.src = r.result;
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function buildFinalTileCanvas(){
+  // The cropper canvas already shows what should be the output (it's a square crop).
+  // Render at OUTPUT_TILE_SIZE × OUTPUT_TILE_SIZE.
+  const tmp = document.createElement("canvas");
+  tmp.width = OUTPUT_TILE_SIZE;
+  tmp.height = OUTPUT_TILE_SIZE;
+  const tctx = tmp.getContext("2d");
+  if(cropper.img){
+    // Compute the source rect in image-space corresponding to the canvas
+    // canvas covers area from offsetX to offsetX+canvas.width on screen
+    // Image displayed at scale. Source pixel (sx,sy) where sx = -offsetX/scale
+    const scale = cropper.scale;
+    const sx = -cropper.offsetX / scale;
+    const sy = -cropper.offsetY / scale;
+    const sw = cropper.canvas.width / scale;
+    const sh = cropper.canvas.height / scale;
+    tctx.drawImage(cropper.img, sx, sy, sw, sh, 0, 0, OUTPUT_TILE_SIZE, OUTPUT_TILE_SIZE);
+  } else {
+    tctx.fillStyle = "#222";
+    tctx.fillRect(0, 0, OUTPUT_TILE_SIZE, OUTPUT_TILE_SIZE);
+  }
+  const text = $("item-text").value;
+  const thickness = parseInt($("item-thickness").value, 10);
+  return renderTile(tmp, text, thickness);
+}
+
+function updatePreview(){
+  const canvas = buildFinalTileCanvas();
+  $("preview-thumb").style.backgroundImage = `url("${canvas.toDataURL("image/png")}")`;
+}
+
+$("btn-pick-photo").addEventListener("click", () => $("file-photo").click());
+$("file-photo").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try {
+    await loadCropperImage(file);
+  } catch(err){
+    alert("Failed to load image: " + (err.message || err));
+  }
+  e.target.value = "";
+});
+
+$("item-text").addEventListener("input", updatePreview);
+$("item-thickness").addEventListener("input", e => {
+  $("thickness-val").textContent = e.target.value;
+  updatePreview();
+});
+
+$("btn-add").addEventListener("click", () => openAddModal());
+function openAddModal(){
+  cropper.editingUid = null;
+  cropper.img = null;
+  $("cropper-hint").style.display = "";
+  $("item-text").value = "";
+  $("item-thickness").value = 6;
+  $("thickness-val").textContent = "6";
+  $("preview-thumb").style.backgroundImage = "";
+  $("btn-add-confirm").textContent = "Add";
+  openModal("modal-add");
+  // Resize after open
+  requestAnimationFrame(() => {
+    const wrap = $("cropper");
+    const rect = wrap.getBoundingClientRect();
+    cropper.canvas.width = Math.max(1, Math.floor(rect.width * window.devicePixelRatio));
+    cropper.canvas.height = Math.max(1, Math.floor(rect.height * window.devicePixelRatio));
+    drawCropper();
+  });
+}
+
+function openEditModal(uidv){
+  const it = state.items[uidv];
+  if(!it) return;
+  cropper.editingUid = uidv;
+  cropper.img = null;
+  $("item-text").value = it.text || "";
+  $("item-thickness").value = it.outline_thickness ?? 6;
+  $("thickness-val").textContent = String(it.outline_thickness ?? 6);
+  $("btn-add-confirm").textContent = "Save Changes";
+  $("preview-thumb").style.backgroundImage = "";
+  openModal("modal-add");
+
+  requestAnimationFrame(() => {
+    const wrap = $("cropper");
+    const rect = wrap.getBoundingClientRect();
+    cropper.canvas.width = Math.max(1, Math.floor(rect.width * window.devicePixelRatio));
+    cropper.canvas.height = Math.max(1, Math.floor(rect.height * window.devicePixelRatio));
+    $("cropper-hint").style.display = "";
+    $("cropper-hint").textContent = "Choose a new photo (text overlay is baked into saved images, so re-cropping requires a fresh photo)";
+    drawCropper();
+  });
+}
+
+$("btn-add-confirm").addEventListener("click", () => {
+  if(!cropper.img){
+    alert("Pick a photo first.");
+    return;
+  }
+  const tile = buildFinalTileCanvas();
+  const b64 = canvasToPngB64(tile);
+  const text = $("item-text").value.trim();
+  const thickness = parseInt($("item-thickness").value, 10);
+
+  if(cropper.editingUid){
+    const it = state.items[cropper.editingUid];
+    if(it){
+      it.text = text;
+      it.outline_thickness = thickness;
+      it.image_png_b64 = b64;
+    }
+  } else {
+    const id = uid();
+    state.items[id] = { uid: id, text, image_png_b64: b64, outline_thickness: thickness };
+    state.pool.push(id);
+  }
+  closeModal("modal-add");
+  scheduleSave();
+  renderItems();
+});
+
+// ----- Edit tiers modal -----
+const tierEditor = {
+  rows: [], // { name, color }
+  pickedIdx: null,
+};
+
+function openTiersModal(){
+  tierEditor.rows = state.tiers.map(t => ({ name: t.name, color: t.color }));
+  tierEditor.pickedIdx = null;
+  renderTierEditor();
+  renderSwatchGrid();
+  openModal("modal-tiers");
+}
+$("btn-tiers").addEventListener("click", openTiersModal);
+
+function renderTierEditor(){
+  const root = $("tier-editor-list");
+  root.innerHTML = "";
+  tierEditor.rows.forEach((r, idx) => {
+    const row = document.createElement("div");
+    row.className = "tier-editor-row";
+    if(tierEditor.pickedIdx === idx) row.style.outline = "2px solid var(--accent)";
+
+    const swatch = document.createElement("div");
+    swatch.className = "swatch";
+    swatch.style.background = r.color;
+    swatch.title = r.color;
+    swatch.addEventListener("click", () => pickTierEditorRow(idx));
+
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "name-input";
+    name.value = r.name;
+    name.addEventListener("input", e => {
+      tierEditor.rows[idx].name = e.target.value;
+    });
+    name.addEventListener("focus", () => pickTierEditorRow(idx));
+
+    const up = document.createElement("button");
+    up.className = "reorder";
+    up.textContent = "↑";
+    up.disabled = idx === 0;
+    up.addEventListener("click", () => moveTierEditor(idx, -1));
+
+    const down = document.createElement("button");
+    down.className = "reorder";
+    down.textContent = "↓";
+    down.disabled = idx === tierEditor.rows.length - 1;
+    down.addEventListener("click", () => moveTierEditor(idx, +1));
+
+    const del = document.createElement("button");
+    del.className = "delete";
+    del.textContent = "✕";
+    del.addEventListener("click", () => {
+      if(tierEditor.rows.length <= 1){ showToast("Need at least one tier"); return; }
+      tierEditor.rows.splice(idx, 1);
+      if(tierEditor.pickedIdx === idx) tierEditor.pickedIdx = null;
+      renderTierEditor();
+    });
+
+    row.appendChild(swatch);
+    row.appendChild(name);
+    row.appendChild(up);
+    row.appendChild(down);
+    row.appendChild(del);
+    root.appendChild(row);
+  });
+}
+
+function pickTierEditorRow(idx){
+  tierEditor.pickedIdx = idx;
+  renderTierEditor();
+}
+function moveTierEditor(idx, dir){
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= tierEditor.rows.length) return;
+  const [r] = tierEditor.rows.splice(idx, 1);
+  tierEditor.rows.splice(newIdx, 0, r);
+  if(tierEditor.pickedIdx === idx) tierEditor.pickedIdx = newIdx;
+  else if(tierEditor.pickedIdx === newIdx) tierEditor.pickedIdx = idx;
+  renderTierEditor();
+}
+
+function renderSwatchGrid(){
+  const grid = $("swatch-grid");
+  grid.innerHTML = "";
+  for(const c of SWATCHES){
+    const d = document.createElement("div");
+    d.style.background = c;
+    d.title = c;
+    d.addEventListener("click", () => applyColorToPickedTier(c));
+    grid.appendChild(d);
+  }
+}
+function applyColorToPickedTier(color){
+  if(tierEditor.pickedIdx === null){
+    showToast("Tap a tier swatch first");
+    return;
+  }
+  const c = normalizeHex(color);
+  if(!c){ showToast("Bad color"); return; }
+  tierEditor.rows[tierEditor.pickedIdx].color = c;
+  renderTierEditor();
+}
+
+$("btn-add-tier").addEventListener("click", () => {
+  tierEditor.rows.push({ name: "New Tier", color: "#888888" });
+  tierEditor.pickedIdx = tierEditor.rows.length - 1;
+  renderTierEditor();
+});
+$("btn-apply-color").addEventListener("click", () => {
+  applyColorToPickedTier($("custom-color").value);
+});
+$("btn-tiers-save").addEventListener("click", () => {
+  // De-duplicate names; preserve assignments by old name where possible
+  const newTiers = tierEditor.rows.map(r => ({
+    name: (r.name || "").trim() || "Tier",
+    color: normalizeHex(r.color) || "#888888",
+  }));
+  // Ensure unique names
+  const seen = new Map();
+  for(const t of newTiers){
+    let n = t.name, i = 2;
+    while(seen.has(n)){ n = `${t.name} ${i++}`; }
+    t.name = n;
+    seen.set(n, true);
+  }
+  // Rebuild tier_items: keep items where the name still exists; orphans → pool
+  const oldMap = state.tier_items;
+  const newMap = {};
+  for(const t of newTiers) newMap[t.name] = [];
+  // Match by ordered position fallback for renamed tiers? We'll match by name only.
+  for(const t of newTiers){
+    if(oldMap[t.name]) newMap[t.name] = oldMap[t.name].slice();
+  }
+  // Items in old tiers that no longer exist
+  const placed = new Set();
+  for(const ids of Object.values(newMap)) ids.forEach(id => placed.add(id));
+  state.pool.forEach(id => placed.add(id));
+  for(const ids of Object.values(oldMap)){
+    for(const id of ids){
+      if(!placed.has(id) && state.items[id]){
+        state.pool.push(id);
+        placed.add(id);
+      }
+    }
+  }
+  state.tiers = newTiers;
+  state.tier_items = newMap;
+  closeModal("modal-tiers");
+  scheduleSave();
+  renderTiers();
+});
+
+// ----- View mode -----
+$("btn-view").addEventListener("click", () => {
+  openModal("modal-view");
+  renderViewCanvas();
+});
+
+function renderViewCanvas(){
+  const canvas = $("view-canvas");
+  const ctx = canvas.getContext("2d");
+
+  const tile = 140;             // size of each item tile in view
+  const gap = 8;
+  const labelW = 140;
+  const padding = 16;
+  const titleH = 0;             // optional title; skipped
+
+  // Determine width based on max items in any row, capped reasonably
+  let maxItemsInRow = 1;
+  for(const t of state.tiers){
+    const ids = state.tier_items[t.name] || [];
+    if(ids.length > maxItemsInRow) maxItemsInRow = ids.length;
+  }
+  // Cap at column count to keep it readable; on overflow we wrap.
+  const colCap = Math.max(4, Math.min(8, maxItemsInRow));
+  const contentW = colCap * tile + (colCap - 1) * gap;
+  const W = padding*2 + labelW + gap + contentW;
+
+  // Compute heights per tier (with wrapping)
+  const rowHeights = state.tiers.map(t => {
+    const n = (state.tier_items[t.name] || []).length;
+    const rows = Math.max(1, Math.ceil(n / colCap));
+    return Math.max(tile, rows * tile + (rows - 1) * gap) + gap*2;
+  });
+
+  const totalRowsH = rowHeights.reduce((a,b) => a + b, 0) + (state.tiers.length - 1) * 4;
+  const H = padding*2 + titleH + totalRowsH;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // BG
+  ctx.fillStyle = "#1c1c1c";
+  ctx.fillRect(0, 0, W, H);
+
+  let y = padding;
+  for(let i = 0; i < state.tiers.length; i++){
+    const t = state.tiers[i];
+    const rh = rowHeights[i];
+    // Label
+    ctx.fillStyle = t.color;
+    ctx.fillRect(padding, y, labelW, rh);
+    ctx.fillStyle = fgFor(t.color);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    let fs = 28;
+    ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
+    while(ctx.measureText(t.name).width > labelW - 12 && fs > 10){
+      fs -= 1;
+      ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
+    }
+    // Word-wrap label vertically if very long
+    const labelLines = wrapLines(ctx, t.name, labelW - 12);
+    const lineH = fs * 1.1;
+    const lblStartY = y + rh/2 - ((labelLines.length-1) * lineH)/2;
+    labelLines.forEach((line, li) => {
+      ctx.fillText(line, padding + labelW/2, lblStartY + li*lineH);
+    });
+
+    // Items area
+    ctx.fillStyle = "#0f0f0f";
+    ctx.fillRect(padding + labelW + gap, y, contentW, rh);
+
+    const ids = state.tier_items[t.name] || [];
+    for(let j = 0; j < ids.length; j++){
+      const it = state.items[ids[j]];
+      if(!it) continue;
+      const col = j % colCap;
+      const row = Math.floor(j / colCap);
+      const ix = padding + labelW + gap + col * (tile + gap);
+      const iy = y + gap + row * (tile + gap);
+      const img = imageForView(it.image_png_b64);
+      if(img){
+        ctx.drawImage(img, ix, iy, tile, tile);
+      }
+    }
+
+    y += rh + 4;
+  }
+}
+
+// Synchronous image cache for view rendering
+const _imgCache = new Map();
+function imageForView(b64){
+  if(_imgCache.has(b64)) {
+    const v = _imgCache.get(b64);
+    return v.complete ? v : null;
+  }
+  const img = new Image();
+  img.src = dataUrl(b64);
+  _imgCache.set(b64, img);
+  img.onload = () => renderViewCanvas();
+  return null;
+}
+
+$("btn-view-share").addEventListener("click", async () => {
+  const canvas = $("view-canvas");
+  canvas.toBlob(async (blob) => {
+    if(!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    a.download = `tierlist_view_${ts}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("Image saved");
+  }, "image/png");
+});
+
+// ----- Selection banner buttons -----
+$("btn-deselect").addEventListener("click", deselect);
+$("btn-more").addEventListener("click", () => {
+  if(!state.selected) return;
+  state.contextUid = state.selected;
+  openSheet("sheet-item");
+});
+
+// Click outside thumbs/buttons in main → deselect (only if not on interactive)
+$("main").addEventListener("click", e => {
+  if(e.target.closest(".thumb")) return;
+  if(e.target.closest("[data-target]")) return; // handled by container tap
+  if(state.selected) deselect();
+});
+
+// ----- Init -----
+function init(){
+  setupCropper();
+  attachContextHold();
+  attachContainerTap();
+  loadFromLocal();
+  $("zoom").value = state.zoom;
+  document.documentElement.style.setProperty("--thumb-size", state.zoom + "px");
+  renderTiers();
+}
+
+window.addEventListener("DOMContentLoaded", init);
+window.addEventListener("beforeunload", persistLocal);
+
+// ----- Disable iOS double-tap zoom on buttons -----
+document.addEventListener("dblclick", e => {
+  if(e.target.closest("button, .thumb, .tier-label, [data-target]")) e.preventDefault();
+}, { passive: false });
+</script>
+</body>
+</html>
