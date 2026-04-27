@@ -290,6 +290,67 @@
   .tier-editor-row .reorder { font-size: 18px; padding: 6px 8px; }
   .tier-editor-row .delete { color: var(--danger); border-color: var(--danger); }
   .tier-editor-row.picked { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .tier-editor-row .name-input.styled {
+    font-weight: 800;
+    text-align: center;
+    min-height: 44px;
+    padding: 6px 8px;
+  }
+
+  .adv-section {
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  .adv-section h3 {
+    font-size: 12px;
+    margin: 0 0 10px 0;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .check-row input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--accent);
+  }
+  .seg {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg2);
+  }
+  .seg-btn {
+    flex: 1;
+    padding: 8px 6px;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    font-size: 13px;
+  }
+  .seg-btn:last-child { border-right: none; }
+  .seg-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .seg-btn:disabled { opacity: 0.35; }
+  select {
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+    font-family: inherit;
+  }
 
   .swatch-grid {
     display: grid;
@@ -497,9 +558,42 @@
     <div class="modal-body">
       <div id="tier-editor-list"></div>
       <button id="btn-add-tier" style="width:100%; margin-top: 8px;">+ Add Tier</button>
+
+      <div class="adv-section" id="adv-section" style="display:none;">
+        <h3>Customize <span id="adv-tier-name" style="color:var(--fg); text-transform:none;">—</span></h3>
+        <label class="check-row" style="margin-bottom:10px;">
+          <input type="checkbox" id="adv-mode-toggle">
+          <span>Advanced mode (font color, border color, patterns, textures)</span>
+        </label>
+
+        <div class="field" style="margin-bottom:10px;">
+          <label>Color picker target</label>
+          <div class="seg" id="color-target-seg">
+            <button class="seg-btn active" type="button" data-target="bg">Background</button>
+            <button class="seg-btn" type="button" data-target="font" data-adv="1">Font</button>
+            <button class="seg-btn" type="button" data-target="border" data-adv="1">Border</button>
+          </div>
+        </div>
+
+        <div id="adv-extras" style="display:none;">
+          <div class="field">
+            <label>Background texture</label>
+            <select id="adv-bg-texture"></select>
+          </div>
+          <div class="field">
+            <label>Border texture</label>
+            <select id="adv-border-texture"></select>
+          </div>
+          <div class="field">
+            <label>Border pattern</label>
+            <select id="adv-border-pattern"></select>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-top: 16px;">
         <label style="font-size:12px; color: var(--muted); text-transform: uppercase;">Color picker</label>
-        <p style="font-size:12px; color: var(--muted); margin: 4px 0;">Tap a tier swatch above, then a color below.</p>
+        <p style="font-size:12px; color: var(--muted); margin: 4px 0;">Tap a tier above to select it, then pick a color below.</p>
         <div class="swatch-grid" id="swatch-grid"></div>
         <div class="field-inline" style="margin-top:8px;">
           <input type="text" id="custom-color" placeholder="#RRGGBB" style="font-family: monospace;">
@@ -567,6 +661,212 @@ const SWATCHES = [
   "#7A33FF","#CC33FF","#FF33A8","#FFFFFF","#E6E6E6","#CCCCCC","#999999",
   "#666666","#333333","#000000",
 ];
+
+// ----- Textures (procedural via SVG feTurbulence; no assets) -----
+// Each entry maps to a filter fragment + optional overlay. The filter is applied to a rect
+// and produces an alpha-modulated color (black or white) that overlays the base color.
+const TEXTURE_NAMES = ['normal','wood','stone','marble','metal','pearl','jade','gem'];
+const TEXTURE_DEFS = {
+  normal: null,
+  wood:   { turb: 'fractalNoise', freq: '0.04 0.7', oct: 3, seed: 3,
+            mat:  '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.55 0 0 0 0' },
+  stone:  { turb: 'fractalNoise', freq: '0.85 0.85', oct: 2, seed: 5,
+            mat:  '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.5 0 0 0 0' },
+  marble: { turb: 'fractalNoise', freq: '0.013', oct: 2, seed: 9,
+            mat:  '0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -8 0 0 0 1' },
+  metal:  { turb: 'fractalNoise', freq: '0.02 0.7', oct: 2, seed: 7,
+            mat:  '0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.55 0 0 0 -0.1',
+            overlay: 'metal' },
+  pearl:  { turb: 'turbulence',   freq: '0.05',     oct: 2, seed: 2,
+            mat:  '0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.4 0 0 0 0',
+            overlay: 'pearl' },
+  jade:   { turb: 'fractalNoise', freq: '0.05',     oct: 3, seed: 11,
+            mat:  '0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.5 0 0 0 -0.15' },
+  gem:    { turb: 'fractalNoise', freq: '0.16',     oct: 1, seed: 13,
+            mat:  '0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3 0 0 0 -1.5' },
+};
+
+function _filterFrag(name){
+  const d = TEXTURE_DEFS[name];
+  if(!d) return '';
+  return `<feTurbulence type="${d.turb}" baseFrequency="${d.freq}" numOctaves="${d.oct}" seed="${d.seed}"/><feColorMatrix values="${d.mat}"/>`;
+}
+function _overlayFrag(name, w, h){
+  const d = TEXTURE_DEFS[name];
+  if(!d || !d.overlay) return '';
+  if(d.overlay === 'metal'){
+    return `<linearGradient id="ovg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="white" stop-opacity="0.22"/><stop offset="50%" stop-color="white" stop-opacity="0"/><stop offset="100%" stop-color="black" stop-opacity="0.22"/></linearGradient>`;
+  }
+  if(d.overlay === 'pearl'){
+    return `<radialGradient id="ovg" cx="38%" cy="32%" r="65%"><stop offset="0%" stop-color="white" stop-opacity="0.5"/><stop offset="55%" stop-color="white" stop-opacity="0.12"/><stop offset="100%" stop-color="white" stop-opacity="0"/></radialGradient>`;
+  }
+  return '';
+}
+
+function buildTextureSurfaceSvg(color, textureName, w = 240, h = 240){
+  if(!textureName || textureName === 'normal' || !TEXTURE_DEFS[textureName]){
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${color}"/></svg>`;
+  }
+  const filter = _filterFrag(textureName);
+  const overlay = _overlayFrag(textureName, w, h);
+  const overlayRect = overlay ? `<rect width="${w}" height="${h}" fill="url(#ovg)"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`
+    + `<defs><filter id="tx" x="0" y="0" width="100%" height="100%">${filter}</filter>${overlay}</defs>`
+    + `<rect width="${w}" height="${h}" fill="${color}"/>`
+    + `<rect width="${w}" height="${h}" filter="url(#tx)"/>`
+    + overlayRect
+    + `</svg>`;
+}
+
+function textureCssBackground(color, textureName){
+  if(!textureName || textureName === 'normal'){
+    return { backgroundColor: color, backgroundImage: '', backgroundSize: '', backgroundRepeat: '' };
+  }
+  const svg = buildTextureSurfaceSvg(color, textureName, 240, 240);
+  const url = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+  return { backgroundColor: color, backgroundImage: url, backgroundSize: '120px 120px', backgroundRepeat: 'repeat' };
+}
+
+// ----- Border patterns -----
+const BORDER_PATTERNS = ['plain','double','inset','ridge','beaded','ribbed'];
+
+function buildBorderImageSvg(pattern, textureName, color){
+  const W = 90, H = 90, T = 30;
+  const filter = _filterFrag(textureName);
+  const hasFilter = !!filter;
+  const tDefs = hasFilter ? `<filter id="bf" x="0" y="0" width="100%" height="100%">${filter}</filter>` : '';
+
+  // Renders a colored shape with optional texture overlay clipped to that shape.
+  function texturedShape(shapeFill, shapeMask){
+    let out = shapeFill; // base color shape
+    if(hasFilter){
+      // The texture overlay is a black/white rect masked to the shape area.
+      out += `<g mask="url(#shapeMask)"><rect width="${W}" height="${H}" filter="url(#bf)"/></g>`;
+      out = `<defs>${tDefs}<mask id="shapeMask"><rect width="${W}" height="${H}" fill="black"/>${shapeMask}</mask></defs>` + out;
+    }
+    return out;
+  }
+
+  let shapeFill = '', shapeMask = '', extraOverlay = '';
+  switch(pattern){
+    case 'double': {
+      const i = T * 0.42;
+      const d = `M0,0 H${W} V${H} H0 Z M${i},${i} H${W-i} V${H-i} H${i} Z M${T-i},${T-i} H${W-T+i} V${H-T+i} H${T-i} Z M${T},${T} H${W-T} V${H-T} H${T} Z`;
+      shapeFill = `<path fill-rule="evenodd" fill="${color}" d="${d}"/>`;
+      shapeMask = `<path fill-rule="evenodd" fill="white" d="${d}"/>`;
+      break;
+    }
+    case 'inset': {
+      const d = `M0,0 H${W} V${H} H0 Z M${T},${T} H${W-T} V${H-T} H${T} Z`;
+      shapeFill = `<path fill-rule="evenodd" fill="${color}" d="${d}"/>`;
+      shapeMask = `<path fill-rule="evenodd" fill="white" d="${d}"/>`;
+      extraOverlay = `<linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="black" stop-opacity="0.42"/><stop offset="100%" stop-color="white" stop-opacity="0.36"/></linearGradient><path fill-rule="evenodd" fill="url(#ig)" d="${d}"/>`;
+      break;
+    }
+    case 'ridge': {
+      const d = `M0,0 H${W} V${H} H0 Z M${T},${T} H${W-T} V${H-T} H${T} Z`;
+      shapeFill = `<path fill-rule="evenodd" fill="${color}" d="${d}"/>`;
+      shapeMask = `<path fill-rule="evenodd" fill="white" d="${d}"/>`;
+      extraOverlay = `<linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="white" stop-opacity="0.42"/><stop offset="100%" stop-color="black" stop-opacity="0.36"/></linearGradient><path fill-rule="evenodd" fill="url(#rg)" d="${d}"/>`;
+      break;
+    }
+    case 'beaded': {
+      const r = T * 0.42;
+      const pts = [
+        [T/2, T/2], [W-T/2, T/2], [T/2, H-T/2], [W-T/2, H-T/2],
+        [W/2, T/2], [W/2, H-T/2], [T/2, H/2], [W-T/2, H/2],
+      ];
+      shapeFill = pts.map(([cx,cy]) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`).join('');
+      shapeMask = pts.map(([cx,cy]) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>`).join('');
+      // Add subtle highlight glints on each bead so they look pearl-like
+      extraOverlay = pts.map(([cx,cy]) => `<circle cx="${cx-r*0.32}" cy="${cy-r*0.32}" r="${r*0.42}" fill="white" fill-opacity="0.32"/>`).join('');
+      break;
+    }
+    case 'ribbed': {
+      const d = `M0,0 H${W} V${H} H0 Z M${T},${T} H${W-T} V${H-T} H${T} Z`;
+      shapeFill = `<path fill-rule="evenodd" fill="${color}" d="${d}"/>`;
+      shapeMask = `<path fill-rule="evenodd" fill="white" d="${d}"/>`;
+      const stripes = 6, sw = 2.5;
+      let s = '';
+      for(let i=0; i<stripes; i++){
+        const x = (W/stripes)*(i+0.5) - sw/2;
+        s += `<rect x="${x}" y="3" width="${sw}" height="${T-6}" fill="black" fill-opacity="0.4"/>`;
+        s += `<rect x="${x}" y="${H-T+3}" width="${sw}" height="${T-6}" fill="black" fill-opacity="0.4"/>`;
+        const y = (H/stripes)*(i+0.5) - sw/2;
+        s += `<rect x="3" y="${y}" width="${T-6}" height="${sw}" fill="black" fill-opacity="0.4"/>`;
+        s += `<rect x="${W-T+3}" y="${y}" width="${T-6}" height="${sw}" fill="black" fill-opacity="0.4"/>`;
+      }
+      extraOverlay = s;
+      break;
+    }
+    default: { // plain
+      const d = `M0,0 H${W} V${H} H0 Z M${T},${T} H${W-T} V${H-T} H${T} Z`;
+      shapeFill = `<path fill-rule="evenodd" fill="${color}" d="${d}"/>`;
+      shapeMask = `<path fill-rule="evenodd" fill="white" d="${d}"/>`;
+      break;
+    }
+  }
+
+  let body;
+  if(hasFilter){
+    body = `<defs>${tDefs}<mask id="shapeMask"><rect width="${W}" height="${H}" fill="black"/>${shapeMask}</mask></defs>`
+         + shapeFill
+         + `<g mask="url(#shapeMask)"><rect width="${W}" height="${H}" filter="url(#bf)"/></g>`
+         + extraOverlay;
+  } else {
+    body = shapeFill + extraOverlay;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${body}</svg>`;
+}
+
+function borderImageCss(pattern, textureName, color){
+  const svg = buildBorderImageSvg(pattern, textureName, color);
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+}
+
+// ----- Apply tier styling to a DOM element (label) -----
+// `opts.thickness` controls the fancy-border thickness (default 8px). `border-radius`
+// is forced to 0 when a border-image is in use because the two are incompatible.
+function applyTierStyle(el, tier, opts){
+  opts = opts || {};
+  const thickness = (opts.thickness != null) ? opts.thickness : 8;
+  const adv = !!tier.advanced;
+  const bg = normalizeHex(tier.color) || '#888888';
+  const fontC = adv && tier.font_color ? tier.font_color : fgFor(bg);
+  const borderC = adv && tier.border_color ? tier.border_color : '#222222';
+  const bgTex = adv ? (tier.bg_texture || 'normal') : 'normal';
+  const borderTex = adv ? (tier.border_texture || 'normal') : 'normal';
+  const pattern = adv ? (tier.border_pattern || 'plain') : 'plain';
+
+  const bgCss = textureCssBackground(bg, bgTex);
+  el.style.backgroundColor = bgCss.backgroundColor;
+  el.style.backgroundImage = bgCss.backgroundImage;
+  el.style.backgroundSize = bgCss.backgroundSize;
+  el.style.backgroundRepeat = bgCss.backgroundRepeat;
+  el.style.color = fontC;
+
+  const fancyBorder = adv && (pattern !== 'plain' || borderTex !== 'normal' || tier.border_color);
+  if(!fancyBorder){
+    el.style.borderImageSource = '';
+    el.style.borderImageSlice = '';
+    el.style.borderImageRepeat = '';
+    el.style.borderImageWidth = '';
+    el.style.borderWidth = '1px';
+    el.style.borderStyle = 'solid';
+    el.style.borderColor = '#222';
+    el.style.borderRadius = '';
+  } else {
+    el.style.borderStyle = 'solid';
+    el.style.borderColor = 'transparent';
+    el.style.borderWidth = thickness + 'px';
+    el.style.borderImageSource = borderImageCss(pattern, borderTex, borderC);
+    el.style.borderImageSlice = '30';
+    el.style.borderImageRepeat = 'round';
+    el.style.borderImageWidth = thickness + 'px';
+    el.style.borderRadius = '0';
+  }
+}
 
 // ----- State -----
 const state = {
@@ -727,8 +1027,7 @@ function renderTiers(){
     const label = document.createElement("div");
     label.className = "tier-label";
     label.textContent = t.name;
-    label.style.background = t.color;
-    label.style.color = fgFor(t.color);
+    applyTierStyle(label, t);
     label.addEventListener("click", () => onTierLabelTap(t.name));
     label.addEventListener("contextmenu", e => { e.preventDefault(); openTierContext(t.name); });
 
@@ -1156,7 +1455,20 @@ function buildPayload(){
   }
   return {
     version: 2,
-    tiers: state.tiers.map(t => ({ name: t.name, color: t.color })),
+    tiers: state.tiers.map(t => {
+      const out = { name: t.name, color: t.color };
+      // Only emit advanced fields when in use, so tier lists without advanced styling
+      // remain byte-compatible with the Python app's TierDef(name, color).
+      if(t.advanced){
+        out.advanced = true;
+        out.font_color = t.font_color || fgFor(t.color);
+        out.border_color = t.border_color || '#222222';
+        out.bg_texture = t.bg_texture || 'normal';
+        out.border_texture = t.border_texture || 'normal';
+        out.border_pattern = t.border_pattern || 'plain';
+      }
+      return out;
+    }),
     items: itemsOut,
     pool: [...state.pool],
     tier_items: Object.fromEntries(state.tiers.map(t => [t.name, [...(state.tier_items[t.name]||[])]])),
@@ -1180,7 +1492,18 @@ function loadFromLocal(){
 }
 function applyPayload(p){
   if(!p || typeof p !== "object") return;
-  state.tiers = (p.tiers || []).map(t => ({ name: t.name, color: normalizeHex(t.color) || "#888888" }));
+  state.tiers = (p.tiers || []).map(t => {
+    const o = { name: t.name, color: normalizeHex(t.color) || "#888888" };
+    if(t.advanced){
+      o.advanced = true;
+      o.font_color = normalizeHex(t.font_color) || fgFor(o.color);
+      o.border_color = normalizeHex(t.border_color) || '#222222';
+      o.bg_texture = TEXTURE_NAMES.includes(t.bg_texture) ? t.bg_texture : 'normal';
+      o.border_texture = TEXTURE_NAMES.includes(t.border_texture) ? t.border_texture : 'normal';
+      o.border_pattern = BORDER_PATTERNS.includes(t.border_pattern) ? t.border_pattern : 'plain';
+    }
+    return o;
+  });
   if(state.tiers.length === 0){
     state.tiers = [{name:"S", color:"#FF7F7F"}];
   }
@@ -1551,18 +1874,52 @@ $("btn-add-confirm").addEventListener("click", () => {
 
 // ----- Edit tiers modal -----
 const tierEditor = {
-  rows: [], // { name, color }
+  rows: [],          // working copy of state.tiers
   pickedIdx: null,
+  colorTarget: 'bg', // 'bg' | 'font' | 'border'
 };
 
+function cloneTier(t){
+  // Deep-ish copy of a tier definition for the editor's working state.
+  const o = { name: t.name, color: t.color };
+  if(t.advanced){
+    o.advanced = true;
+    o.font_color = t.font_color || fgFor(t.color);
+    o.border_color = t.border_color || '#222222';
+    o.bg_texture = t.bg_texture || 'normal';
+    o.border_texture = t.border_texture || 'normal';
+    o.border_pattern = t.border_pattern || 'plain';
+  }
+  return o;
+}
+
 function openTiersModal(){
-  tierEditor.rows = state.tiers.map(t => ({ name: t.name, color: t.color }));
-  tierEditor.pickedIdx = null;
+  tierEditor.rows = state.tiers.map(cloneTier);
+  tierEditor.pickedIdx = tierEditor.rows.length > 0 ? 0 : null;
+  tierEditor.colorTarget = 'bg';
+  populateTextureSelects();
   renderTierEditor();
   renderSwatchGrid();
+  renderAdvancedSection();
   openModal("modal-tiers");
 }
 $("btn-tiers").addEventListener("click", openTiersModal);
+
+function populateTextureSelects(){
+  const labels = { normal: 'Normal', wood: 'Wood', stone: 'Stone', marble: 'Marble', metal: 'Metal', pearl: 'Pearl', jade: 'Jade', gem: 'Gem' };
+  const patterns = { plain: 'Plain', double: 'Double rule', inset: 'Inset (3D)', ridge: 'Ridge (raised)', beaded: 'Beaded', ribbed: 'Ribbed' };
+  const fill = (sel, opts) => {
+    sel.innerHTML = '';
+    for(const [v, lbl] of Object.entries(opts)){
+      const o = document.createElement('option');
+      o.value = v; o.textContent = lbl;
+      sel.appendChild(o);
+    }
+  };
+  fill($("adv-bg-texture"), labels);
+  fill($("adv-border-texture"), labels);
+  fill($("adv-border-pattern"), patterns);
+}
 
 function renderTierEditor(){
   const root = $("tier-editor-list");
@@ -1581,10 +1938,13 @@ function renderTierEditor(){
 
     const name = document.createElement("input");
     name.type = "text";
-    name.className = "name-input";
+    name.className = "name-input styled";
     name.value = r.name;
+    // Live-style the name input as a mini preview of the tier label.
+    applyTierStyle(name, r, { thickness: 5 });
     name.addEventListener("input", e => {
       tierEditor.rows[idx].name = e.target.value;
+      if(idx === tierEditor.pickedIdx) $("adv-tier-name").textContent = e.target.value || '(unnamed)';
     });
     name.addEventListener("focus", () => pickTierEditorRow(idx));
 
@@ -1609,6 +1969,7 @@ function renderTierEditor(){
       if(tierEditor.pickedIdx === idx) tierEditor.pickedIdx = null;
       else if(tierEditor.pickedIdx > idx) tierEditor.pickedIdx -= 1;
       renderTierEditor();
+      renderAdvancedSection();
     });
 
     row.appendChild(swatch);
@@ -1620,6 +1981,18 @@ function renderTierEditor(){
   });
 }
 
+// Refresh just the styling of the input previews (called after a value tweak so we
+// don't blow away focus of the input being typed in).
+function refreshTierEditorPreview(idx){
+  const row = document.querySelector(`#tier-editor-list .tier-editor-row[data-idx="${idx}"]`);
+  if(!row) return;
+  const r = tierEditor.rows[idx];
+  const swatch = row.querySelector('.swatch');
+  if(swatch) swatch.style.background = r.color;
+  const input = row.querySelector('.name-input');
+  if(input) applyTierStyle(input, r, { thickness: 5 });
+}
+
 // Toggle the picked indicator via a class only — never rebuild the editor here,
 // or focusing a name input would destroy the input mid-keystroke.
 function pickTierEditorRow(idx){
@@ -1627,6 +2000,7 @@ function pickTierEditorRow(idx){
   document.querySelectorAll('#tier-editor-list .tier-editor-row').forEach((row, i) => {
     row.classList.toggle('picked', i === idx);
   });
+  renderAdvancedSection();
 }
 function moveTierEditor(idx, dir){
   const newIdx = idx + dir;
@@ -1636,6 +2010,7 @@ function moveTierEditor(idx, dir){
   if(tierEditor.pickedIdx === idx) tierEditor.pickedIdx = newIdx;
   else if(tierEditor.pickedIdx === newIdx) tierEditor.pickedIdx = idx;
   renderTierEditor();
+  renderAdvancedSection();
 }
 
 function renderSwatchGrid(){
@@ -1651,29 +2026,116 @@ function renderSwatchGrid(){
 }
 function applyColorToPickedTier(color){
   if(tierEditor.pickedIdx === null){
-    showToast("Tap a tier swatch first");
+    showToast("Tap a tier first");
     return;
   }
   const c = normalizeHex(color);
   if(!c){ showToast("Bad color"); return; }
-  tierEditor.rows[tierEditor.pickedIdx].color = c;
-  renderTierEditor();
+  const row = tierEditor.rows[tierEditor.pickedIdx];
+  if(tierEditor.colorTarget === 'font' && row.advanced) row.font_color = c;
+  else if(tierEditor.colorTarget === 'border' && row.advanced) row.border_color = c;
+  else row.color = c;
+  refreshTierEditorPreview(tierEditor.pickedIdx);
 }
+
+function renderAdvancedSection(){
+  const sec = $("adv-section");
+  const idx = tierEditor.pickedIdx;
+  if(idx === null){
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = '';
+  const row = tierEditor.rows[idx];
+  $("adv-tier-name").textContent = row.name || '(unnamed)';
+  $("adv-mode-toggle").checked = !!row.advanced;
+  $("adv-extras").style.display = row.advanced ? '' : 'none';
+  $("adv-bg-texture").value = row.bg_texture || 'normal';
+  $("adv-border-texture").value = row.border_texture || 'normal';
+  $("adv-border-pattern").value = row.border_pattern || 'plain';
+  // Disable font/border color targets when not in advanced mode.
+  document.querySelectorAll('#color-target-seg .seg-btn').forEach(b => {
+    const isAdvOnly = b.dataset.adv === '1';
+    b.disabled = isAdvOnly && !row.advanced;
+    if(isAdvOnly && !row.advanced && b.classList.contains('active')){
+      tierEditor.colorTarget = 'bg';
+    }
+    b.classList.toggle('active', b.dataset.target === tierEditor.colorTarget);
+  });
+}
+
+// Wire up advanced controls
+$("adv-mode-toggle").addEventListener("change", e => {
+  const idx = tierEditor.pickedIdx;
+  if(idx === null) return;
+  const row = tierEditor.rows[idx];
+  if(e.target.checked){
+    row.advanced = true;
+    if(!row.font_color) row.font_color = fgFor(row.color);
+    if(!row.border_color) row.border_color = '#222222';
+    if(!row.bg_texture) row.bg_texture = 'normal';
+    if(!row.border_texture) row.border_texture = 'normal';
+    if(!row.border_pattern) row.border_pattern = 'plain';
+  } else {
+    delete row.advanced;
+  }
+  renderAdvancedSection();
+  refreshTierEditorPreview(idx);
+});
+document.querySelectorAll('#color-target-seg .seg-btn').forEach(b => {
+  b.addEventListener("click", () => {
+    if(b.disabled) return;
+    tierEditor.colorTarget = b.dataset.target;
+    document.querySelectorAll('#color-target-seg .seg-btn').forEach(x => {
+      x.classList.toggle('active', x === b);
+    });
+  });
+});
+$("adv-bg-texture").addEventListener("change", e => {
+  const idx = tierEditor.pickedIdx;
+  if(idx === null) return;
+  tierEditor.rows[idx].bg_texture = e.target.value;
+  refreshTierEditorPreview(idx);
+});
+$("adv-border-texture").addEventListener("change", e => {
+  const idx = tierEditor.pickedIdx;
+  if(idx === null) return;
+  tierEditor.rows[idx].border_texture = e.target.value;
+  refreshTierEditorPreview(idx);
+});
+$("adv-border-pattern").addEventListener("change", e => {
+  const idx = tierEditor.pickedIdx;
+  if(idx === null) return;
+  tierEditor.rows[idx].border_pattern = e.target.value;
+  refreshTierEditorPreview(idx);
+});
 
 $("btn-add-tier").addEventListener("click", () => {
   tierEditor.rows.push({ name: "New Tier", color: "#888888" });
   tierEditor.pickedIdx = tierEditor.rows.length - 1;
   renderTierEditor();
+  renderAdvancedSection();
 });
 $("btn-apply-color").addEventListener("click", () => {
   applyColorToPickedTier($("custom-color").value);
 });
 $("btn-tiers-save").addEventListener("click", () => {
   // De-duplicate names; preserve assignments by old name where possible
-  const newTiers = tierEditor.rows.map(r => ({
-    name: (r.name || "").trim() || "Tier",
-    color: normalizeHex(r.color) || "#888888",
-  }));
+  const newTiers = tierEditor.rows.map(r => {
+    const t = {
+      name: (r.name || "").trim() || "Tier",
+      color: normalizeHex(r.color) || "#888888",
+    };
+    if(r.advanced){
+      t.advanced = true;
+      t.font_color = normalizeHex(r.font_color) || fgFor(t.color);
+      t.border_color = normalizeHex(r.border_color) || '#222222';
+      t.bg_texture = TEXTURE_NAMES.includes(r.bg_texture) ? r.bg_texture : 'normal';
+      t.border_texture = TEXTURE_NAMES.includes(r.border_texture) ? r.border_texture : 'normal';
+      t.border_pattern = BORDER_PATTERNS.includes(r.border_pattern) ? r.border_pattern : 'plain';
+    }
+    return t;
+  });
   // Ensure unique names
   const seen = new Map();
   for(const t of newTiers){
@@ -1715,6 +2177,82 @@ $("btn-view").addEventListener("click", () => {
   renderViewCanvas();
 });
 
+// Cache + lazy-load helpers for tier-style resources used by the view canvas.
+// Each call returns either an already-decoded HTMLImageElement (synchronous) or null
+// while the SVG is still loading; loading triggers a re-render automatically.
+const _tierBgCache = new Map();
+const _tierBorderCache = new Map();
+
+function _ensureTierResource(cacheMap, key, url, onLoad){
+  if(cacheMap.has(key)){
+    const v = cacheMap.get(key);
+    return (v.complete && v.naturalWidth > 0) ? v : null;
+  }
+  const img = new Image();
+  img.onload = onLoad;
+  img.src = url;
+  cacheMap.set(key, img);
+  return null;
+}
+function tierBgImage(color, textureName){
+  if(textureName === 'normal' || !textureName) return null; // solid color rendered directly
+  const key = `${textureName}|${color}`;
+  const url = `data:image/svg+xml;utf8,${encodeURIComponent(buildTextureSurfaceSvg(color, textureName, 240, 240))}`;
+  return _ensureTierResource(_tierBgCache, key, url, () => renderViewCanvas());
+}
+function tierBorderImage(pattern, textureName, color){
+  const key = `${pattern}|${textureName}|${color}`;
+  const url = `data:image/svg+xml;utf8,${encodeURIComponent(buildBorderImageSvg(pattern, textureName, color))}`;
+  return _ensureTierResource(_tierBorderCache, key, url, () => renderViewCanvas());
+}
+
+// 9-slice draw of a 90×90 border-image source (slice = 30) into a destination rect.
+// `destSlice` controls how thick the border is in destination pixels; `mode` is
+// 'stretch' (default) or 'repeat' (used for beaded/ribbed where stretching looks bad).
+function draw9Slice(ctx, srcImg, dx, dy, dw, dh, destSlice = 30, mode = 'stretch'){
+  const SS = 90, S = 30, MS = SS - 2*S;
+  const ds = destSlice;
+  // Corners
+  ctx.drawImage(srcImg, 0, 0, S, S, dx, dy, ds, ds);
+  ctx.drawImage(srcImg, SS-S, 0, S, S, dx+dw-ds, dy, ds, ds);
+  ctx.drawImage(srcImg, 0, SS-S, S, S, dx, dy+dh-ds, ds, ds);
+  ctx.drawImage(srcImg, SS-S, SS-S, S, S, dx+dw-ds, dy+dh-ds, ds, ds);
+
+  const midDw = dw - 2*ds;
+  const midDh = dh - 2*ds;
+  // Side slices: in dest, the natural scale of one source-middle is MS * (ds/S) units.
+  const naturalCell = MS * (ds / S);
+
+  if(midDw > 0){
+    if(mode === 'repeat'){
+      const count = Math.max(1, Math.round(midDw / naturalCell));
+      const stepW = midDw / count;
+      for(let i = 0; i < count; i++){
+        const x2 = dx + ds + i * stepW;
+        ctx.drawImage(srcImg, S, 0, MS, S, x2, dy, stepW, ds);
+        ctx.drawImage(srcImg, S, SS-S, MS, S, x2, dy+dh-ds, stepW, ds);
+      }
+    } else {
+      ctx.drawImage(srcImg, S, 0, MS, S, dx+ds, dy, midDw, ds);
+      ctx.drawImage(srcImg, S, SS-S, MS, S, dx+ds, dy+dh-ds, midDw, ds);
+    }
+  }
+  if(midDh > 0){
+    if(mode === 'repeat'){
+      const count = Math.max(1, Math.round(midDh / naturalCell));
+      const stepH = midDh / count;
+      for(let i = 0; i < count; i++){
+        const y2 = dy + ds + i * stepH;
+        ctx.drawImage(srcImg, 0, S, S, MS, dx, y2, ds, stepH);
+        ctx.drawImage(srcImg, SS-S, S, S, MS, dx+dw-ds, y2, ds, stepH);
+      }
+    } else {
+      ctx.drawImage(srcImg, 0, S, S, MS, dx, dy+ds, ds, midDh);
+      ctx.drawImage(srcImg, SS-S, S, S, MS, dx+dw-ds, dy+ds, ds, midDh);
+    }
+  }
+}
+
 function renderViewCanvas(){
   const canvas = $("view-canvas");
   const ctx = canvas.getContext("2d");
@@ -1724,6 +2262,7 @@ function renderViewCanvas(){
   const LABEL_W = 160;
   const PAD = 16;
   const ROW_GAP = 4;
+  const BORDER_T = 12;    // px thickness of fancy border around tier label in view mode
 
   // Make sure every image is loaded before measuring — otherwise we don't know aspect ratios.
   const allItems = Object.values(state.items);
@@ -1733,9 +2272,23 @@ function renderViewCanvas(){
     return img && img.complete && img.naturalWidth > 0;
   });
   if(!allLoaded){
-    // Show a placeholder while images stream in; renderViewCanvas() will fire again on each load.
     canvas.width = 1; canvas.height = 1;
     return;
+  }
+
+  // Pre-warm tier texture/border resources. If any aren't loaded yet, the loaders will
+  // call renderViewCanvas() again once decoded — same lazy strategy as item images.
+  for(const t of state.tiers){
+    const adv = !!t.advanced;
+    const bgTex = adv ? (t.bg_texture || 'normal') : 'normal';
+    if(bgTex !== 'normal') tierBgImage(t.color, bgTex);
+    const fancyBorder = adv && ((t.border_pattern && t.border_pattern !== 'plain') || (t.border_texture && t.border_texture !== 'normal') || t.border_color);
+    if(fancyBorder){
+      const borderTex = t.border_texture || 'normal';
+      const borderC = t.border_color || '#222222';
+      const pattern = t.border_pattern || 'plain';
+      tierBorderImage(pattern, borderTex, borderC);
+    }
   }
 
   // Compute the width of each tier row at its native aspect ratio.
@@ -1782,20 +2335,58 @@ function renderViewCanvas(){
   let y = PAD;
   for(let i = 0; i < state.tiers.length; i++){
     const t = state.tiers[i];
+    const adv = !!t.advanced;
+    const bg = t.color || '#888888';
+    const fontC = adv && t.font_color ? t.font_color : fgFor(bg);
+    const bgTex = adv ? (t.bg_texture || 'normal') : 'normal';
+    const borderTex = adv ? (t.border_texture || 'normal') : 'normal';
+    const pattern = adv ? (t.border_pattern || 'plain') : 'plain';
+    const borderC = adv && t.border_color ? t.border_color : '#222222';
 
-    // Tier label
-    ctx.fillStyle = t.color;
+    // Tier label background
+    ctx.fillStyle = bg;
     ctx.fillRect(PAD, y, LABEL_W, rowH);
-    ctx.fillStyle = fgFor(t.color);
+    if(bgTex !== 'normal'){
+      const bgImg = tierBgImage(bg, bgTex);
+      if(bgImg){
+        // Tile the texture image across the label area.
+        const ptn = ctx.createPattern(bgImg, 'repeat');
+        if(ptn){
+          ctx.save();
+          ctx.fillStyle = ptn;
+          // Pattern starts at (0,0); translate so tiling aligns with the label rect.
+          ctx.translate(PAD, y);
+          ctx.fillRect(0, 0, LABEL_W, rowH);
+          ctx.restore();
+        }
+      }
+    }
+
+    // Tier label border (fancy or plain)
+    const fancyBorder = adv && (pattern !== 'plain' || borderTex !== 'normal' || t.border_color);
+    if(fancyBorder){
+      const bImg = tierBorderImage(pattern, borderTex, borderC);
+      if(bImg){
+        const repeatMode = (pattern === 'beaded' || pattern === 'ribbed') ? 'repeat' : 'stretch';
+        draw9Slice(ctx, bImg, PAD, y, LABEL_W, rowH, BORDER_T, repeatMode);
+      }
+    } else {
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(PAD + 0.5, y + 0.5, LABEL_W - 1, rowH - 1);
+    }
+
+    // Tier label text
+    ctx.fillStyle = fontC;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     let fs = 28;
     ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
-    while(ctx.measureText(t.name).width > LABEL_W - 12 && fs > 10){
+    while(ctx.measureText(t.name).width > LABEL_W - 24 && fs > 10){
       fs -= 1;
       ctx.font = `800 ${fs}px -apple-system, system-ui, sans-serif`;
     }
-    const labelLines = wrapLines(ctx, t.name, LABEL_W - 12);
+    const labelLines = wrapLines(ctx, t.name, LABEL_W - 24);
     const lineH = fs * 1.1;
     const lblStartY = y + rowH/2 - ((labelLines.length - 1) * lineH)/2;
     labelLines.forEach((line, li) => {
