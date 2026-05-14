@@ -484,6 +484,8 @@
   <button id="btn-add">＋ Item</button>
   <button id="btn-tiers">Tiers</button>
   <button id="btn-view">View</button>
+  <button id="btn-labels">Labels: ON</button>
+  <button id="btn-export-text">Export Text</button>
   <button id="btn-save">Save</button>
   <button id="btn-load-trigger">Load</button>
   <input type="file" id="btn-load" class="hidden-input" accept=".json,application/json">
@@ -518,6 +520,9 @@
       <button onclick="closeModal('modal-add')">✕</button>
     </div>
     <div class="modal-body">
+      <div id="legacy-notice" style="display:none; background:#3a2a16; border:1px solid #6b4a1a; color:#ffd28a; padding:8px 10px; border-radius:8px; font-size:12px; margin-bottom:10px;">
+        This item has a baked-in label from an older save. Edits to the label text will only show in exports and tooltips. Pick a new photo below to make the label fully editable.
+      </div>
       <button id="btn-pick-photo" class="primary" style="width:100%; margin-bottom: 12px;">Choose Photo</button>
       <input type="file" id="file-photo" class="hidden-input" accept="image/*">
 
@@ -626,6 +631,27 @@
     </div>
   </div>
 </div>
+
+<!-- Export text modal -->
+<div class="modal-backdrop" id="modal-export">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Export Text</h2>
+      <button onclick="closeModal('modal-export')">✕</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="export-textarea" readonly
+        style="width:100%; min-height:240px; background:var(--bg2); color:var(--fg); border:1px solid var(--border); border-radius:8px; padding:10px; font-family:monospace; font-size:13px; resize:vertical;"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button id="btn-export-copy">Copy</button>
+      <button id="btn-export-download">Download .txt</button>
+      <button onclick="closeModal('modal-export')" class="primary">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit label notice (shown inside add modal for legacy items) -->
 
 <!-- Item context sheet -->
 <div class="sheet-backdrop" id="sheet-item">
@@ -877,10 +903,11 @@ const state = {
     { name: "C", color: "#BFFF7F" },
     { name: "D", color: "#7FBFFF" },
   ],
-  items: {},        // uid -> { uid, text, image_png_b64, outline_thickness }
+  items: {},        // uid -> { uid, text, image_base_b64, image_png_b64, outline_thickness, legacy_baked }
   pool: [],         // [uid, ...]
   tier_items: {},   // tierName -> [uid, ...]
   zoom: 110,
+  labels_visible: true, // false = thumbnails show base image without label overlay
   selected: null,   // uid (selected for tap-to-move)
   contextUid: null, // uid for context sheet
   contextTier: null,// tier name for context sheet
@@ -1092,11 +1119,21 @@ function cssEscape(s){
   return (s||"").replace(/["\\]/g, "\\$&");
 }
 
+// Pick the image to display for an item. Legacy items (label baked into the only
+// image we have) always render the baked version. Modern items render the labeled
+// version when labels_visible is on, the un-labeled base when it's off.
+function displayB64(item){
+  if(!item) return "";
+  if(item.legacy_baked) return item.image_png_b64 || item.image_base_b64 || "";
+  if(state.labels_visible) return item.image_png_b64 || item.image_base_b64 || "";
+  return item.image_base_b64 || item.image_png_b64 || "";
+}
+
 function makeThumb(item){
   const el = document.createElement("div");
   el.className = "thumb";
   el.dataset.uid = item.uid;
-  el.style.backgroundImage = `url("${dataUrl(item.image_png_b64)}")`;
+  el.style.backgroundImage = `url("${dataUrl(displayB64(item))}")`;
   if(item.text) el.title = item.text;
   if(state.selected === item.uid) el.classList.add("selected");
   attachThumbHandlers(el);
@@ -1107,7 +1144,7 @@ function updateSelectionBanner(){
   const banner = $("selected-banner");
   if(state.selected && state.items[state.selected]){
     const it = state.items[state.selected];
-    $("selected-mini").style.backgroundImage = `url("${dataUrl(it.image_png_b64)}")`;
+    $("selected-mini").style.backgroundImage = `url("${dataUrl(displayB64(it))}")`;
     $("selected-text").textContent = it.text ? `"${it.text}" — tap a tier or pool to place` : "Tap a tier or pool to place";
     banner.classList.add("show");
   } else {
@@ -1284,7 +1321,7 @@ function beginDrag(uidv, x, y){
   ghost.style.display = "block";
   ghost.style.width = state.zoom + "px";
   ghost.style.height = state.zoom + "px";
-  ghost.style.backgroundImage = `url("${dataUrl(it.image_png_b64)}")`;
+  ghost.style.backgroundImage = `url("${dataUrl(displayB64(it))}")`;
   updateGhost(x, y);
   if(drag.fromEl) drag.fromEl.classList.add("dragging");
   // Capture pointer to keep events on the source element
@@ -1446,15 +1483,22 @@ function scheduleSave(){
 function buildPayload(){
   const itemsOut = {};
   for(const [k,v] of Object.entries(state.items)){
-    itemsOut[k] = {
+    const out = {
       uid: v.uid,
       text: v.text || "",
       image_png_b64: v.image_png_b64,
       outline_thickness: v.outline_thickness | 0,
     };
+    // Modern items track a separate label-free base so labels can be toggled and
+    // edited later. Older saves (and items migrated from them) may not have one.
+    if(v.image_base_b64 && v.image_base_b64 !== v.image_png_b64){
+      out.image_base_b64 = v.image_base_b64;
+    }
+    if(v.legacy_baked) out.legacy_baked = true;
+    itemsOut[k] = out;
   }
   return {
-    version: 2,
+    version: 3,
     tiers: state.tiers.map(t => {
       const out = { name: t.name, color: t.color };
       // Only emit advanced fields when in use, so tier lists without advanced styling
@@ -1473,6 +1517,7 @@ function buildPayload(){
     pool: [...state.pool],
     tier_items: Object.fromEntries(state.tiers.map(t => [t.name, [...(state.tier_items[t.name]||[])]])),
     zoom: state.zoom,
+    labels_visible: state.labels_visible,
   };
 }
 function persistLocal(){
@@ -1509,11 +1554,22 @@ function applyPayload(p){
   }
   state.items = {};
   for(const [k,v] of Object.entries(p.items || {})){
+    const png = v.image_png_b64 || "";
+    const baseExplicit = v.image_base_b64;
+    // Pre-v3 saves only have image_png_b64 with the label baked into it. We can't
+    // separate the two cleanly, so treat the baked image as both display and base
+    // and flag it so we don't redraw a label on top of it.
+    const hasExplicitBase = !!baseExplicit;
+    const legacy = (typeof v.legacy_baked === 'boolean')
+      ? v.legacy_baked
+      : (!hasExplicitBase && !!(v.text && v.text.length));
     state.items[k] = {
       uid: v.uid || k,
       text: v.text || "",
-      image_png_b64: v.image_png_b64 || "",
+      image_base_b64: baseExplicit || png,
+      image_png_b64: png || baseExplicit || "",
       outline_thickness: (v.outline_thickness ?? 6) | 0,
+      legacy_baked: legacy,
     };
   }
   state.tier_items = {};
@@ -1541,6 +1597,8 @@ function applyPayload(p){
   if(state.zoom < 60) state.zoom = 60;
   if(state.zoom > 220) state.zoom = 220;
   $("zoom").value = state.zoom;
+  state.labels_visible = (p.labels_visible !== false);
+  updateLabelsToggleButton();
   state.selected = null;
 }
 
@@ -1585,6 +1643,59 @@ $("zoom").addEventListener("input", e => {
   scheduleSave();
 });
 
+// ----- Labels toggle -----
+function updateLabelsToggleButton(){
+  const btn = $("btn-labels");
+  if(!btn) return;
+  btn.textContent = "Labels: " + (state.labels_visible ? "ON" : "OFF");
+}
+$("btn-labels").addEventListener("click", () => {
+  state.labels_visible = !state.labels_visible;
+  updateLabelsToggleButton();
+  scheduleSave();
+  renderItems();
+  // If the View modal is open, refresh it too.
+  if($("modal-view").classList.contains("open")) renderViewCanvas();
+});
+
+// ----- Export Text -----
+$("btn-export-text").addEventListener("click", () => {
+  const lines = state.tiers.map(t => {
+    const ids = state.tier_items[t.name] || [];
+    const labels = ids
+      .map(id => state.items[id])
+      .filter(it => it && it.text && it.text.length)
+      .map(it => it.text);
+    return `[${t.name}]:${labels.join(",")}`;
+  });
+  $("export-textarea").value = lines.join("\n");
+  openModal("modal-export");
+});
+$("btn-export-copy").addEventListener("click", async () => {
+  const ta = $("export-textarea");
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    showToast("Copied to clipboard");
+  } catch(_) {
+    // Fallback: select for manual copy
+    ta.select();
+    document.execCommand && document.execCommand("copy");
+    showToast("Copied (or select & copy)");
+  }
+});
+$("btn-export-download").addEventListener("click", () => {
+  const blob = new Blob([$("export-textarea").value], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.download = `tierlist_text_${ts}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
 // ----- Add item modal & cropper -----
 const cropper = {
   canvas: null,
@@ -1598,6 +1709,7 @@ const cropper = {
   lastPinchDist: 0,
   lastMid: null,
   editingUid: null, // when editing existing item
+  imageReplaced: false, // edit-mode flag: true once user picks a new file
 };
 
 function setupCropper(){
@@ -1752,17 +1864,15 @@ function loadCropperImage(file){
   });
 }
 
-function buildFinalTileCanvas(){
-  // The cropper canvas already shows what should be the output (it's a square crop).
-  // Render at OUTPUT_TILE_SIZE × OUTPUT_TILE_SIZE.
+// Build the un-labeled OUTPUT_TILE_SIZE square from the cropper. Used both for
+// the live preview's base layer and for the persisted image_base_b64.
+function buildBaseTileCanvas(){
   const tmp = document.createElement("canvas");
   tmp.width = OUTPUT_TILE_SIZE;
   tmp.height = OUTPUT_TILE_SIZE;
   const tctx = tmp.getContext("2d");
   if(cropper.img){
-    // Compute the source rect in image-space corresponding to the canvas
-    // canvas covers area from offsetX to offsetX+canvas.width on screen
-    // Image displayed at scale. Source pixel (sx,sy) where sx = -offsetX/scale
+    // The cropper canvas covers a rect in image-space at the current scale.
     const scale = cropper.scale;
     const sx = -cropper.offsetX / scale;
     const sy = -cropper.offsetY / scale;
@@ -1773,9 +1883,13 @@ function buildFinalTileCanvas(){
     tctx.fillStyle = "#222";
     tctx.fillRect(0, 0, OUTPUT_TILE_SIZE, OUTPUT_TILE_SIZE);
   }
+  return tmp;
+}
+
+function buildFinalTileCanvas(){
   const text = $("item-text").value;
   const thickness = parseInt($("item-thickness").value, 10);
-  return renderTile(tmp, text, thickness);
+  return renderTile(buildBaseTileCanvas(), text, thickness);
 }
 
 function updatePreview(){
@@ -1789,6 +1903,9 @@ $("file-photo").addEventListener("change", async e => {
   if(!file) return;
   try {
     await loadCropperImage(file);
+    cropper.imageReplaced = true;
+    // A new photo erases the "legacy baked" warning state for the edit modal.
+    $("legacy-notice").style.display = "none";
   } catch(err){
     alert("Failed to load image: " + (err.message || err));
   }
@@ -1805,12 +1922,16 @@ $("btn-add").addEventListener("click", () => openAddModal());
 function openAddModal(){
   cropper.editingUid = null;
   cropper.img = null;
+  cropper.imageReplaced = false;
   $("cropper-hint").style.display = "";
+  $("cropper-hint").textContent = "Pick a photo to begin · drag to pan, pinch to zoom";
+  $("legacy-notice").style.display = "none";
   $("item-text").value = "";
   $("item-thickness").value = 6;
   $("thickness-val").textContent = "6";
   $("preview-thumb").style.backgroundImage = "";
   $("btn-add-confirm").textContent = "Add";
+  $("btn-pick-photo").textContent = "Choose Photo";
   openModal("modal-add");
   // Resize after open
   requestAnimationFrame(() => {
@@ -1822,26 +1943,63 @@ function openAddModal(){
   });
 }
 
+// Loads a base64 PNG into the cropper as the active image (no file picker).
+// Used by the edit flow so the user doesn't need to re-upload to change the label.
+function loadCropperImageFromB64(b64){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      cropper.img = img;
+      const cw = cropper.canvas.width;
+      const ch = cropper.canvas.height;
+      cropper.minScale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+      cropper.scale = cropper.minScale;
+      cropper.offsetX = (cw - img.naturalWidth * cropper.scale) / 2;
+      cropper.offsetY = (ch - img.naturalHeight * cropper.scale) / 2;
+      drawCropper();
+      $("cropper-hint").style.display = "none";
+      updatePreview();
+      resolve();
+    };
+    img.onerror = reject;
+    img.src = dataUrl(b64);
+  });
+}
+
 function openEditModal(uidv){
   const it = state.items[uidv];
   if(!it) return;
   cropper.editingUid = uidv;
   cropper.img = null;
+  cropper.imageReplaced = false;
   $("item-text").value = it.text || "";
   $("item-thickness").value = it.outline_thickness ?? 6;
   $("thickness-val").textContent = String(it.outline_thickness ?? 6);
   $("btn-add-confirm").textContent = "Save Changes";
+  $("btn-pick-photo").textContent = "Replace Photo";
+  $("legacy-notice").style.display = it.legacy_baked ? "" : "none";
   $("preview-thumb").style.backgroundImage = "";
   openModal("modal-add");
 
-  requestAnimationFrame(() => {
+  requestAnimationFrame(async () => {
     const wrap = $("cropper");
     const rect = wrap.getBoundingClientRect();
     cropper.canvas.width = Math.max(1, Math.floor(rect.width * window.devicePixelRatio));
     cropper.canvas.height = Math.max(1, Math.floor(rect.height * window.devicePixelRatio));
-    $("cropper-hint").style.display = "";
-    $("cropper-hint").textContent = "Choose a new photo (text overlay is baked into saved images, so re-cropping requires a fresh photo)";
-    drawCropper();
+    // Pre-load the existing base into the cropper so the user can change just the
+    // label without picking a new file. They can still click "Replace Photo" to swap.
+    const b64 = it.image_base_b64 || it.image_png_b64;
+    if(b64){
+      try { await loadCropperImageFromB64(b64); }
+      catch(_){
+        $("cropper-hint").style.display = "";
+        $("cropper-hint").textContent = "Couldn't load existing image — pick a new photo.";
+        drawCropper();
+      }
+    } else {
+      $("cropper-hint").style.display = "";
+      drawCropper();
+    }
   });
 }
 
@@ -1850,21 +2008,47 @@ $("btn-add-confirm").addEventListener("click", () => {
     alert("Pick a photo first.");
     return;
   }
-  const tile = buildFinalTileCanvas();
-  const b64 = canvasToPngB64(tile);
   const text = $("item-text").value.trim();
   const thickness = parseInt($("item-thickness").value, 10);
 
   if(cropper.editingUid){
     const it = state.items[cropper.editingUid];
-    if(it){
-      it.text = text;
-      it.outline_thickness = thickness;
-      it.image_png_b64 = b64;
+    if(!it){ closeModal("modal-add"); return; }
+    it.text = text;
+    it.outline_thickness = thickness;
+    if(cropper.imageReplaced){
+      // Fresh photo: re-derive both base and labeled image from the cropper.
+      // Replacing the photo also clears the legacy-baked flag because the new base
+      // has no label baked into it.
+      const baseCanvas = buildBaseTileCanvas();
+      const labeledCanvas = renderTile(baseCanvas, text, thickness);
+      it.image_base_b64 = canvasToPngB64(baseCanvas);
+      it.image_png_b64 = canvasToPngB64(labeledCanvas);
+      it.legacy_baked = false;
+    } else if(!it.legacy_baked){
+      // Photo wasn't replaced but the user may have re-cropped, or just changed text.
+      // Regenerating both keeps base & labeled in sync. (Lossless: the original PNG
+      // round-trips through the cropper at minScale without resampling.)
+      const baseCanvas = buildBaseTileCanvas();
+      const labeledCanvas = renderTile(baseCanvas, text, thickness);
+      it.image_base_b64 = canvasToPngB64(baseCanvas);
+      it.image_png_b64 = canvasToPngB64(labeledCanvas);
     }
+    // Legacy items without a fresh photo intentionally leave image_png_b64 alone
+    // (drawing a new label on top of the baked one would duplicate labels). The
+    // text/thickness changes still take effect in exports and tooltips.
   } else {
+    const baseCanvas = buildBaseTileCanvas();
+    const labeledCanvas = renderTile(baseCanvas, text, thickness);
     const id = uid();
-    state.items[id] = { uid: id, text, image_png_b64: b64, outline_thickness: thickness };
+    state.items[id] = {
+      uid: id,
+      text,
+      image_base_b64: canvasToPngB64(baseCanvas),
+      image_png_b64: canvasToPngB64(labeledCanvas),
+      outline_thickness: thickness,
+      legacy_baked: false,
+    };
     state.pool.push(id);
   }
   closeModal("modal-add");
@@ -2266,9 +2450,9 @@ function renderViewCanvas(){
 
   // Make sure every image is loaded before measuring — otherwise we don't know aspect ratios.
   const allItems = Object.values(state.items);
-  for(const it of allItems) imageForView(it.image_png_b64);
+  for(const it of allItems) imageForView(displayB64(it));
   const allLoaded = allItems.every(it => {
-    const img = imageForView(it.image_png_b64);
+    const img = imageForView(displayB64(it));
     return img && img.complete && img.naturalWidth > 0;
   });
   if(!allLoaded){
@@ -2299,7 +2483,7 @@ function renderViewCanvas(){
     for(let j = 0; j < ids.length; j++){
       const it = state.items[ids[j]];
       if(!it) continue;
-      const img = imageForView(it.image_png_b64);
+      const img = imageForView(displayB64(it));
       if(!img) continue;
       const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
       w += tileW;
@@ -2404,7 +2588,7 @@ function renderViewCanvas(){
     for(let j = 0; j < ids.length; j++){
       const it = state.items[ids[j]];
       if(!it) continue;
-      const img = imageForView(it.image_png_b64);
+      const img = imageForView(displayB64(it));
       if(!img) continue;
       const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
       ctx.drawImage(img, x, y + GAP, tileW, TILE_H);
@@ -2469,6 +2653,7 @@ function init(){
   loadFromLocal();
   $("zoom").value = state.zoom;
   document.documentElement.style.setProperty("--thumb-size", state.zoom + "px");
+  updateLabelsToggleButton();
   renderTiers();
 }
 
