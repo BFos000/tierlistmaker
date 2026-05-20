@@ -476,6 +476,337 @@
     padding: 4px 10px;
     font-size: 12px;
   }
+
+  /* ===== Bracket Fight ===== */
+  .bf-overlay {
+    position: fixed; inset: 0;
+    background: #0b0b0b;
+    z-index: 300;
+    display: none;
+    flex-direction: column;
+  }
+  .bf-overlay.open { display: flex; }
+  .bf-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(var(--safe-top) + 10px) 12px 10px 12px;
+    background: #161616;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .bf-header h2 { margin: 0; font-size: 16px; flex: 1; }
+  .bf-header .bf-progress { color: var(--muted); font-size: 12px; }
+  .bf-viewport {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background:
+      radial-gradient(circle at 20% 20%, #1a1a1a 0, transparent 60%),
+      radial-gradient(circle at 80% 80%, #181818 0, transparent 55%),
+      #0b0b0b;
+    touch-action: none;
+    cursor: grab;
+  }
+  .bf-viewport:active { cursor: grabbing; }
+  .bf-stage {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  .bf-stage svg.bf-links {
+    position: absolute; top: 0; left: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .bf-match {
+    position: absolute;
+    width: 168px;
+    background: #1c1c1c;
+    border: 1px solid #2e2e2e;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .bf-match.current {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(74,158,255,0.5), 0 4px 14px rgba(0,0,0,0.6);
+  }
+  .bf-slot {
+    display: flex; align-items: center; gap: 8px;
+    height: 38px;
+    padding: 0 8px;
+    font-size: 13px;
+    color: var(--fg);
+    overflow: hidden;
+  }
+  .bf-slot + .bf-slot { border-top: 1px solid #2a2a2a; }
+  .bf-slot .bf-seed {
+    flex-shrink: 0;
+    width: 18px;
+    color: #777;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .bf-slot .bf-pic {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 4px;
+    background-size: cover; background-position: center;
+    background-color: #111;
+  }
+  .bf-slot .bf-name {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .bf-slot.win { background: rgba(74,158,255,0.13); color: #fff; font-weight: 600; }
+  .bf-slot.win .bf-seed { color: var(--accent); }
+  .bf-slot.lose { color: #666; }
+  .bf-slot.lose .bf-pic { filter: grayscale(1) opacity(0.5); }
+  .bf-slot.tbd { color: #555; font-style: italic; }
+  .bf-slot.bye { color: #555; }
+  .bf-champion {
+    position: absolute;
+    width: 200px;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #3a2f0a, #1c1c1c);
+    border: 1px solid #b8860b;
+    text-align: center;
+    box-shadow: 0 0 24px rgba(184,134,11,0.35);
+  }
+  .bf-champion .bf-crown { font-size: 26px; }
+  .bf-champion .bf-pic {
+    width: 96px; height: 96px;
+    border-radius: 8px;
+    margin: 8px auto;
+    background-size: cover; background-position: center;
+    background-color: #111;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .bf-champion .bf-name { font-size: 16px; font-weight: 700; color: #ffe9a8; word-break: break-word; }
+  .bf-round-label {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    color: #888;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .bf-tools {
+    position: absolute;
+    right: 12px; bottom: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    z-index: 2;
+  }
+  .bf-tools button {
+    width: 40px; height: 40px;
+    padding: 0;
+    font-size: 18px;
+    border-radius: 8px;
+    background: rgba(30,30,30,0.9);
+    backdrop-filter: blur(2px);
+  }
+
+  .bf-prompt {
+    flex-shrink: 0;
+    height: 50vh;
+    height: 50dvh;
+    display: flex;
+    flex-direction: column;
+    background: #161616;
+    border-top: 1px solid var(--border);
+    padding: 12px 12px calc(var(--safe-bottom) + 12px) 12px;
+  }
+  .bf-prompt .bf-q {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+  .bf-choices {
+    flex: 1;
+    min-height: 0;
+    display: flex; align-items: stretch; gap: 12px;
+  }
+  .bf-vs {
+    align-self: center;
+    color: #777;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .bf-choice {
+    flex: 1; min-width: 0;
+    display: flex;
+    padding: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .bf-choice:active { background: #333; }
+  .bf-choice .bf-pic {
+    flex: 1; min-width: 0;
+    border-radius: 8px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: #111;
+  }
+  .bf-done {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .bf-done .bf-winline {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    overflow: hidden;
+  }
+  .bf-done .bf-winline .bf-pic {
+    width: 40px; height: 40px; flex-shrink: 0;
+    border-radius: 6px;
+    background-size: cover; background-position: center;
+    background-color: #111;
+  }
+  .bf-done .bf-winline .bf-txt { min-width: 0; overflow: hidden; }
+  .bf-done .bf-winline .bf-txt b { color: #ffe9a8; }
+  .bf-empty {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+  }
+
+  /* Per-bracket coloring */
+  .bf-match.in-W { border-color: #2f4d2f; }
+  .bf-match.in-W.current { border-color: var(--accent); }
+  .bf-match.in-L { border-color: #5a2f2f; background: #1a1414; }
+  .bf-match.in-L.current { border-color: var(--accent); }
+  .bf-match.in-GF, .bf-match.in-GFR { border-color: #b8860b; background: #221d10; }
+  .bf-match.in-GF.current, .bf-match.in-GFR.current { border-color: var(--accent); }
+
+  /* Setup screen */
+  .bf-setup {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .bf-overlay.phase-play .bf-setup { display: none; }
+  .bf-overlay.phase-setup .bf-viewport,
+  .bf-overlay.phase-setup .bf-prompt,
+  .bf-overlay.phase-setup #bf-restart,
+  .bf-overlay.phase-setup #bf-progress { display: none; }
+  .bf-setup-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .bf-setup-section { margin-bottom: 22px; }
+  .bf-setup-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .bf-setup-sub {
+    text-transform: none;
+    letter-spacing: 0;
+    color: #666;
+    font-size: 12px;
+  }
+  .bf-setup-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .bf-mode-seg {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg2);
+  }
+  .bf-seg-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 12px 8px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .bf-seg-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .bf-seg-btn + .bf-seg-btn { border-left: 1px solid var(--border); }
+
+  .bf-tier-picker {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .bf-tier-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .bf-tier-row.off { opacity: 0.45; }
+  .bf-tier-check {
+    width: 22px; height: 22px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    border: 2px solid #555;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    background: #111;
+  }
+  .bf-tier-row.on .bf-tier-check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .bf-tier-swatch {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .bf-tier-name {
+    flex: 1;
+    font-weight: 700;
+  }
+  .bf-tier-count {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .bf-setup-footer {
+    flex-shrink: 0;
+    padding: 12px 16px calc(var(--safe-bottom) + 14px) 16px;
+    background: #161616;
+    border-top: 1px solid var(--border);
+  }
+  .bf-setup-footer button { width: 100%; padding: 14px; font-size: 15px; }
+  .bf-setup-warn {
+    text-align: center;
+    color: #ffb95a;
+    font-size: 12px;
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
@@ -486,6 +817,7 @@
   <button id="btn-view">View</button>
   <button id="btn-labels">Labels: ON</button>
   <button id="btn-export-text">Export Text</button>
+  <button id="btn-bracket">⚔ Bracket</button>
   <button id="btn-save">Save</button>
   <button id="btn-load-trigger">Load</button>
   <input type="file" id="btn-load" class="hidden-input" accept=".json,application/json">
@@ -649,6 +981,48 @@
       <button onclick="closeModal('modal-export')" class="primary">Done</button>
     </div>
   </div>
+</div>
+
+<!-- Bracket Fight overlay -->
+<div class="bf-overlay" id="bf-overlay">
+  <div class="bf-header">
+    <h2>⚔ Bracket Fight</h2>
+    <span class="bf-progress" id="bf-progress"></span>
+    <button id="bf-restart">Restart</button>
+    <button id="bf-close">✕</button>
+  </div>
+  <div class="bf-setup" id="bf-setup">
+    <div class="bf-setup-body">
+      <div class="bf-setup-section">
+        <div class="bf-setup-label">Mode</div>
+        <div class="bf-mode-seg" id="bf-mode-seg">
+          <button class="bf-seg-btn active" type="button" data-mode="single">Single Elimination</button>
+          <button class="bf-seg-btn" type="button" data-mode="double">Double Elimination</button>
+        </div>
+        <div class="bf-setup-hint" id="bf-mode-hint">One loss and you're out. Fewer matchups, faster.</div>
+      </div>
+      <div class="bf-setup-section">
+        <div class="bf-setup-label">
+          Tiers to include
+          <span class="bf-setup-sub" id="bf-tiers-summary"></span>
+        </div>
+        <div class="bf-tier-picker" id="bf-tier-picker"></div>
+      </div>
+    </div>
+    <div class="bf-setup-footer">
+      <button id="bf-start" class="primary">Start Bracket</button>
+    </div>
+  </div>
+  <div class="bf-viewport" id="bf-viewport">
+    <div class="bf-stage" id="bf-stage"></div>
+    <div class="bf-empty" id="bf-empty" style="display:none;"></div>
+    <div class="bf-tools">
+      <button id="bf-zoom-in" title="Zoom in">＋</button>
+      <button id="bf-zoom-out" title="Zoom out">－</button>
+      <button id="bf-fit" title="Fit / center" style="font-size:13px;">Fit</button>
+    </div>
+  </div>
+  <div class="bf-prompt" id="bf-prompt"></div>
 </div>
 
 <!-- Edit label notice (shown inside add modal for legacy items) -->
@@ -2644,6 +3018,804 @@ $("main").addEventListener("click", e => {
   if(e.target.closest("[data-target]")) return; // handled by container tap
   if(state.selected) deselect();
 });
+
+// ===================================================================
+// ----- Bracket Fight -----
+// Single or double elimination knockout seeded by tier placement.
+// Ephemeral: never touches state.* or persistence.
+// ===================================================================
+const BF = {
+  W: 168,            // match box width
+  SLOT_H: 38,
+  get MATCH_H(){ return this.SLOT_H * 2; },
+  V_GAP: 26,         // vertical gap between matches
+  COL_GAP: 60,       // horizontal gap between round columns
+  BAND_GAP: 90,      // vertical gap between WB band and LB band (double mode)
+  PAD_TOP: 56,
+  PAD_LEFT: 24,
+  // Bracket graph
+  matches: [],       // generic match list (WB, LB, GF, GFR)
+  byId: {},          // id -> match
+  entries: [],       // uid[] in seed order (1-indexed via seed)
+  wb: [],            // wb[round] = [matchId]
+  lb: [],            // lb[round] = [matchId]
+  k: 0,              // WB round count
+  gfId: null,        // id of Grand Final match (double-elim)
+  gfrId: null,       // id of Bracket Reset match (double-elim, gated)
+  // Play state
+  champion: null,
+  current: null,     // match id awaiting a manual pick, or null
+  decidable: 0, decided: 0,
+  // Viewport
+  view: { scale: 1, x: 0, y: 0 },
+  pointers: new Map(),
+  pinch: null,
+  layout: null,
+  // User-facing settings (persist for the page session only)
+  settings: null,
+};
+
+function bfEntryName(uid){
+  const it = state.items[uid];
+  if(!it) return "?";
+  return (it.text && it.text.trim()) ? it.text.trim() : "(no label)";
+}
+function bfPic(uid){
+  const it = state.items[uid];
+  return it ? dataUrl(displayB64(it)) : "";
+}
+
+// Standard recursive seeding order for a bracket of `size` (power of 2).
+function bfSeedOrder(size){
+  let a = [1];
+  while(a.length < size){
+    const n = a.length * 2;
+    const next = [];
+    for(const s of a){ next.push(s); next.push(n + 1 - s); }
+    a = next;
+  }
+  return a;
+}
+
+function bfDefaultSettings(){
+  return { mode: 'single', excluded: new Set() };
+}
+
+function bfCollectEntries(){
+  const seeded = [];
+  for(const t of state.tiers){
+    if(BF.settings.excluded.has(t.name)) continue;
+    for(const id of (state.tier_items[t.name] || [])){
+      if(state.items[id]) seeded.push(id);
+    }
+  }
+  return seeded;
+}
+
+// Build a fresh bracket from current settings & tier placements.
+function bfBuild(){
+  BF.matches = []; BF.byId = {};
+  BF.wb = []; BF.lb = []; BF.k = 0;
+  BF.gfId = null; BF.gfrId = null;
+  BF.champion = null; BF.current = null;
+  BF.decidable = 0; BF.decided = 0;
+
+  const seeded = bfCollectEntries();
+  BF.entries = seeded;
+  if(seeded.length < 2) return;
+
+  let size = 1;
+  while(size < seeded.length) size *= 2;
+  const order = bfSeedOrder(size);
+
+  let nextId = 0;
+  const mk = (props) => {
+    const m = {
+      id: nextId++,
+      a: { uid: null, seed: null, resolved: false },
+      b: { uid: null, seed: null, resolved: false },
+      winner: null,
+      gated: false,
+      skipped: false,
+      byeWin: false,
+      ...props,
+    };
+    BF.matches.push(m);
+    BF.byId[m.id] = m;
+    return m;
+  };
+
+  // -------- Winners Bracket --------
+  const wb1 = [];
+  for(let i = 0; i < size; i += 2){
+    const m = mk({
+      bracket: 'W', round: 0, idx: wb1.length,
+      aSrc: { kind: 'seed', s: order[i] },
+      bSrc: { kind: 'seed', s: order[i + 1] },
+    });
+    wb1.push(m.id);
+  }
+  BF.wb.push(wb1);
+  while(BF.wb[BF.wb.length - 1].length > 1){
+    const prev = BF.wb[BF.wb.length - 1];
+    const next = [];
+    for(let i = 0; i < prev.length; i += 2){
+      const m = mk({
+        bracket: 'W', round: BF.wb.length, idx: next.length,
+        aSrc: { kind: 'win', id: prev[i] },
+        bSrc: { kind: 'win', id: prev[i + 1] },
+      });
+      next.push(m.id);
+    }
+    BF.wb.push(next);
+  }
+  BF.k = BF.wb.length;
+  const wbFinalId = BF.wb[BF.k - 1][0];
+
+  if(BF.settings.mode !== 'double'){
+    bfResolve();
+    return;
+  }
+
+  // -------- Losers Bracket --------
+  let lbFinalId = null;
+  if(BF.k >= 2){
+    // LBR1: pairs of WBR1 losers.
+    const lb1 = [];
+    for(let i = 0; i < wb1.length; i += 2){
+      const m = mk({
+        bracket: 'L', round: 0, idx: lb1.length,
+        aSrc: { kind: 'lose', id: wb1[i] },
+        bSrc: { kind: 'lose', id: wb1[i + 1] },
+      });
+      lb1.push(m.id);
+    }
+    BF.lb.push(lb1);
+    // For each later WB round, add a "major" LB round (receiving WB drops)
+    // then a "minor" LB round between LB players (skipped if only 1 match).
+    for(let i = 1; i < BF.k; i++){
+      const wbDrops = BF.wb[i].slice().reverse(); // spread top seeds
+      const lbPrev = BF.lb[BF.lb.length - 1];
+      const major = [];
+      for(let j = 0; j < lbPrev.length; j++){
+        const m = mk({
+          bracket: 'L', round: BF.lb.length, idx: major.length,
+          aSrc: { kind: 'win',  id: lbPrev[j] },
+          bSrc: { kind: 'lose', id: wbDrops[j] },
+        });
+        major.push(m.id);
+      }
+      BF.lb.push(major);
+      if(major.length > 1){
+        const minor = [];
+        for(let j = 0; j < major.length; j += 2){
+          const m = mk({
+            bracket: 'L', round: BF.lb.length, idx: minor.length,
+            aSrc: { kind: 'win', id: major[j] },
+            bSrc: { kind: 'win', id: major[j + 1] },
+          });
+          minor.push(m.id);
+        }
+        BF.lb.push(minor);
+      }
+    }
+    lbFinalId = BF.lb[BF.lb.length - 1][0];
+  }
+
+  // -------- Grand Final + Bracket Reset (gated) --------
+  const gf = mk({
+    bracket: 'GF', round: 0, idx: 0,
+    aSrc: { kind: 'win', id: wbFinalId },
+    bSrc: (BF.k === 1) ? { kind: 'lose', id: wbFinalId }
+                       : { kind: 'win',  id: lbFinalId },
+  });
+  BF.gfId = gf.id;
+  const gfr = mk({
+    bracket: 'GFR', round: 0, idx: 0,
+    aSrc: { kind: 'lose', id: gf.id },
+    bSrc: { kind: 'win',  id: gf.id },
+    gated: true,
+  });
+  BF.gfrId = gfr.id;
+  bfResolve();
+}
+
+// ---- Resolution ----
+function bfResolveSlot(slot, src){
+  if(src.kind === 'seed'){
+    slot.uid = BF.entries[src.s - 1] || null;
+    slot.seed = src.s;
+    slot.resolved = true;
+    return;
+  }
+  const ref = BF.byId[src.id];
+  if(ref && ref.winner != null && !ref.gated && !ref.skipped){
+    const w = ref.winner, l = (w === 'a' ? 'b' : 'a');
+    const side = (src.kind === 'win') ? w : l;
+    slot.uid = ref[side].uid;
+    slot.seed = ref[side].seed;
+    slot.resolved = true;
+  } else if(ref && ref.skipped){
+    slot.uid = null; slot.seed = null; slot.resolved = true;
+  } else {
+    slot.uid = null; slot.seed = null; slot.resolved = false;
+  }
+}
+
+function bfResolve(){
+  for(let pass = 0; pass < 100; pass++){
+    let changed = false;
+    for(const m of BF.matches){
+      const pAU = m.a.uid, pBU = m.b.uid, pW = m.winner, pSk = m.skipped, pGt = m.gated;
+      // GFR gating: only active when GF is decided in favor of side 'b' (LB rep).
+      if(m.id === BF.gfrId){
+        const gf = BF.byId[BF.gfId];
+        if(gf && gf.winner === 'a'){ m.skipped = true;  m.gated = false; }
+        else if(gf && gf.winner === 'b'){ m.skipped = false; m.gated = false; }
+        else { m.skipped = false; m.gated = true; }
+      }
+      if(m.gated || m.skipped){
+        m.a.uid = m.b.uid = null;
+        m.a.seed = m.b.seed = null;
+        m.a.resolved = m.b.resolved = false;
+      } else {
+        bfResolveSlot(m.a, m.aSrc);
+        bfResolveSlot(m.b, m.bSrc);
+        // Auto-advance byes (one side definitively absent).
+        if(m.winner == null && m.a.resolved && m.b.resolved){
+          if(m.a.uid && !m.b.uid){ m.winner = 'a'; m.byeWin = true; }
+          else if(m.b.uid && !m.a.uid){ m.winner = 'b'; m.byeWin = true; }
+          else if(!m.a.uid && !m.b.uid){ m.winner = 'a'; m.byeWin = true; }
+        }
+      }
+      if(pAU !== m.a.uid || pBU !== m.b.uid || pW !== m.winner ||
+         pSk !== m.skipped || pGt !== m.gated) changed = true;
+    }
+    if(!changed) break;
+  }
+
+  // Champion
+  BF.champion = null;
+  if(BF.settings.mode === 'single'){
+    const last = BF.matches[BF.matches.length - 1];
+    if(last && last.winner) BF.champion = last[last.winner].uid;
+  } else {
+    const gf  = BF.byId[BF.gfId];
+    const gfr = BF.byId[BF.gfrId];
+    if(gf && gf.winner === 'a') BF.champion = gf.a.uid;
+    else if(gf && gf.winner === 'b' && gfr && !gfr.skipped && gfr.winner)
+      BF.champion = gfr[gfr.winner].uid;
+  }
+
+  // Progress / current pointer
+  BF.current = null;
+  let decidable = 0, decided = 0;
+  for(const m of BF.matches){
+    if(m.skipped || m.gated) continue;
+    if(m.byeWin) continue;
+    if(m.a.uid && m.b.uid){
+      decidable++;
+      if(m.winner) decided++;
+      else if(BF.current == null) BF.current = m.id;
+    }
+  }
+  BF.decidable = decidable;
+  BF.decided = decided;
+}
+
+function bfPick(side){
+  if(BF.current == null) return;
+  const m = BF.byId[BF.current];
+  if(!m) return;
+  m.winner = side;
+  m.byeWin = false;
+  bfResolve();
+  bfRender();
+  bfFocusCurrent(true);
+}
+
+// ---- Labels ----
+function bfWBLabel(round){
+  const k = BF.k;
+  if(BF.settings.mode === 'single'){
+    const back = k - 1 - round;
+    if(back === 0) return "Final";
+    if(back === 1) return "Semifinal";
+    if(back === 2 && k >= 4) return "Quarterfinal";
+    return "Round " + (round + 1);
+  }
+  if(round === k - 1) return "WB Final";
+  if(round === k - 2 && k >= 3) return "WB Semifinal";
+  return "WB R" + (round + 1);
+}
+function bfLBLabel(round){
+  if(round === BF.lb.length - 1) return "LB Final";
+  return "LB R" + (round + 1);
+}
+function bfMatchLabel(m){
+  if(m.bracket === 'W')   return bfWBLabel(m.round);
+  if(m.bracket === 'L')   return bfLBLabel(m.round);
+  if(m.bracket === 'GF')  return "Grand Final";
+  if(m.bracket === 'GFR') return "Bracket Reset";
+  return "Match";
+}
+
+// ----- Layout -----
+function bfComputeLayout(){
+  const { W, MATCH_H, V_GAP, COL_GAP, BAND_GAP, PAD_TOP, PAD_LEFT } = BF;
+  const pos = {};
+  const yCenter = {};
+
+  // WB centers
+  if(BF.wb.length){
+    BF.wb[0].forEach((id, j) => {
+      yCenter[id] = PAD_TOP + j * (MATCH_H + V_GAP) + MATCH_H / 2;
+    });
+    for(let r = 1; r < BF.wb.length; r++){
+      const prev = BF.wb[r - 1];
+      BF.wb[r].forEach((id, j) => {
+        yCenter[id] = (yCenter[prev[2 * j]] + yCenter[prev[2 * j + 1]]) / 2;
+      });
+    }
+  }
+  const wbBandTop = PAD_TOP;
+  const wbBandBot = BF.wb.length
+    ? PAD_TOP + BF.wb[0].length * (MATCH_H + V_GAP) - V_GAP
+    : PAD_TOP;
+
+  // LB centers (own band below WB)
+  const lbBandTop = wbBandBot + BAND_GAP;
+  let lbBandBot = lbBandTop;
+  if(BF.lb.length){
+    BF.lb[0].forEach((id, j) => {
+      yCenter[id] = lbBandTop + j * (MATCH_H + V_GAP) + MATCH_H / 2;
+    });
+    for(let r = 1; r < BF.lb.length; r++){
+      const prev = BF.lb[r - 1], cur = BF.lb[r];
+      if(cur.length === prev.length){
+        // "major" round: 1:1 alignment with previous round
+        cur.forEach((id, j) => { yCenter[id] = yCenter[prev[j]]; });
+      } else {
+        // "minor" round: pair up previous round
+        cur.forEach((id, j) => {
+          yCenter[id] = (yCenter[prev[2 * j]] + yCenter[prev[2 * j + 1]]) / 2;
+        });
+      }
+    }
+    lbBandBot = lbBandTop + BF.lb[0].length * (MATCH_H + V_GAP) - V_GAP;
+  }
+
+  // Columns: WBR r → col r; LBR r → col r+1 (LBR1 sits below WBR2).
+  const wbCol = r => r;
+  const lbCol = r => r + 1;
+  let maxCol = -1;
+  for(let r = 0; r < BF.wb.length; r++) maxCol = Math.max(maxCol, wbCol(r));
+  for(let r = 0; r < BF.lb.length; r++) maxCol = Math.max(maxCol, lbCol(r));
+
+  const colToX = c => PAD_LEFT + c * (W + COL_GAP);
+  for(let r = 0; r < BF.wb.length; r++){
+    BF.wb[r].forEach(id => { pos[id] = { x: colToX(wbCol(r)), y: yCenter[id] - MATCH_H / 2 }; });
+  }
+  for(let r = 0; r < BF.lb.length; r++){
+    BF.lb[r].forEach(id => { pos[id] = { x: colToX(lbCol(r)), y: yCenter[id] - MATCH_H / 2 }; });
+  }
+
+  let champX = null, champY = null, gfrY = 0;
+  if(BF.settings.mode === 'double' && BF.gfId != null){
+    const gfCol = maxCol + 1;
+    const gfX = colToX(gfCol);
+    const wbFinalY = BF.wb.length ? yCenter[BF.wb[BF.wb.length - 1][0]]
+                                  : (PAD_TOP + MATCH_H / 2);
+    const lbFinalY = BF.lb.length ? yCenter[BF.lb[BF.lb.length - 1][0]]
+                                  : wbFinalY + MATCH_H + V_GAP;
+    const gfY = (wbFinalY + lbFinalY) / 2 - MATCH_H / 2;
+    yCenter[BF.gfId] = gfY + MATCH_H / 2;
+    pos[BF.gfId] = { x: gfX, y: gfY };
+
+    const gfrCol = gfCol + 1;
+    const gfrX = colToX(gfrCol);
+    gfrY = gfY + MATCH_H + V_GAP;
+    yCenter[BF.gfrId] = gfrY + MATCH_H / 2;
+    pos[BF.gfrId] = { x: gfrX, y: gfrY };
+
+    champX = colToX(gfrCol + 1);
+    champY = (yCenter[BF.gfId] + yCenter[BF.gfrId]) / 2;
+    maxCol = gfrCol + 1;
+  } else if(BF.wb.length){
+    const wbFinalId = BF.wb[BF.wb.length - 1][0];
+    champX = colToX(wbCol(BF.wb.length - 1)) + W + COL_GAP;
+    champY = yCenter[wbFinalId];
+  }
+
+  const stageW = colToX(maxCol < 0 ? 0 : maxCol) + W + 100;
+  const stageH = Math.max(wbBandBot, lbBandBot, gfrY + MATCH_H) + PAD_TOP;
+  return { pos, yCenter, stageW, stageH, champX, champY, wbBandTop, lbBandTop };
+}
+
+// ----- DOM render -----
+function bfRender(){
+  const stage = $("bf-stage");
+  const empty = $("bf-empty");
+
+  if(!BF.matches.length){
+    stage.innerHTML = "";
+    stage.style.width = stage.style.height = "0px";
+    empty.style.display = "flex";
+    empty.textContent = "No entries to fight — go back and pick at least 2 items / tiers.";
+    $("bf-prompt").innerHTML = "";
+    $("bf-progress").textContent = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  const L = bfComputeLayout();
+  BF.layout = L;
+  const { W, MATCH_H } = BF;
+  stage.style.width  = L.stageW + "px";
+  stage.style.height = L.stageH + "px";
+
+  // ---- Connector lines ----
+  let paths = "";
+  for(const m of BF.matches){
+    if(m.skipped) continue;
+    if(m.gated)   continue;
+    if(!L.pos[m.id]) continue;
+    for(const [src, side] of [[m.aSrc, 'a'], [m.bSrc, 'b']]){
+      if(src.kind === 'seed') continue;
+      const ref = BF.byId[src.id];
+      if(!ref || !L.pos[ref.id]) continue;
+      const sx = L.pos[ref.id].x + W;
+      const sy = L.yCenter[ref.id];
+      const tx = L.pos[m.id].x;
+      const ty = L.pos[m.id].y + (side === 'a' ? MATCH_H * 0.25 : MATCH_H * 0.75);
+      const midX = (sx + tx) / 2;
+      const stroke = (src.kind === 'lose') ? "#6b3030" : "#3a3a3a";
+      const dash   = (src.kind === 'lose') ? ' stroke-dasharray="4,3"' : '';
+      paths += `<path d="M${sx} ${sy} H${midX} V${ty} H${tx}" `
+            +  `fill="none" stroke="${stroke}" stroke-width="2"${dash}/>`;
+    }
+  }
+  // Final → champion connector
+  if(BF.champion && L.champX != null){
+    let fromX, fromY;
+    if(BF.settings.mode === 'double'){
+      const gfr = BF.byId[BF.gfrId];
+      const fromId = (gfr && !gfr.skipped && gfr.winner) ? BF.gfrId : BF.gfId;
+      fromX = L.pos[fromId].x + W;
+      fromY = L.yCenter[fromId];
+    } else {
+      const last = BF.wb[BF.wb.length - 1][0];
+      fromX = L.pos[last].x + W;
+      fromY = L.yCenter[last];
+    }
+    paths += `<path d="M${fromX} ${fromY} H${L.champX}" `
+          +  `fill="none" stroke="#b8860b" stroke-width="2"/>`;
+  }
+
+  let html = `<svg class="bf-links" width="${L.stageW}" height="${L.stageH}">${paths}</svg>`;
+
+  // ---- Round labels ----
+  for(let r = 0; r < BF.wb.length; r++){
+    const id = BF.wb[r][0];
+    html += `<div class="bf-round-label" style="left:${L.pos[id].x + W / 2}px;`
+         +  `top:${Math.max(20, L.wbBandTop - 28)}px;">`
+         +  `${escapeHtml(bfWBLabel(r))}</div>`;
+  }
+  for(let r = 0; r < BF.lb.length; r++){
+    const id = BF.lb[r][0];
+    html += `<div class="bf-round-label" style="left:${L.pos[id].x + W / 2}px;`
+         +  `top:${L.lbBandTop - 28}px;color:#c98484;">`
+         +  `${escapeHtml(bfLBLabel(r))}</div>`;
+  }
+  if(BF.gfId != null && L.pos[BF.gfId]){
+    html += `<div class="bf-round-label" style="left:${L.pos[BF.gfId].x + W / 2}px;`
+         +  `top:20px;color:#cba34a;">Grand Final</div>`;
+  }
+  if(BF.gfrId != null && L.pos[BF.gfrId]){
+    const gfr = BF.byId[BF.gfrId];
+    if(!gfr.skipped){
+      const dim = gfr.gated ? "color:#5a4520;" : "color:#cba34a;";
+      html += `<div class="bf-round-label" style="left:${L.pos[BF.gfrId].x + W / 2}px;`
+           +  `top:20px;${dim}">Bracket Reset</div>`;
+    }
+  }
+
+  // ---- Match boxes ----
+  for(const m of BF.matches){
+    if(m.skipped) continue;
+    if(!L.pos[m.id]) continue;
+    const isCur = (m.id === BF.current);
+    let cls = "bf-match in-" + m.bracket;
+    if(isCur) cls += " current";
+    const style = `left:${L.pos[m.id].x}px;top:${L.pos[m.id].y}px;`
+                + (m.gated ? "opacity:0.35;" : "");
+    html += `<div class="${cls}" style="${style}">`
+         +  bfSlotHtml(m, "a") + bfSlotHtml(m, "b")
+         +  `</div>`;
+  }
+
+  // ---- Champion card ----
+  if(BF.champion && L.champX != null){
+    html += `<div class="bf-champion" style="left:${L.champX}px;`
+         +  `top:${L.champY - 90}px;">`
+         +  `<div class="bf-crown">🏆</div>`
+         +  `<div class="bf-pic" style="background-image:url('${bfPic(BF.champion)}')"></div>`
+         +  `<div class="bf-name">${escapeHtml(bfEntryName(BF.champion))}</div>`
+         +  `</div>`;
+  }
+
+  stage.innerHTML = html;
+  bfRenderPrompt();
+  bfApplyTransform();
+
+  $("bf-progress").textContent = BF.champion
+    ? "Complete" : `${BF.decided} / ${BF.decidable} decided`;
+}
+
+function bfSlotHtml(m, side){
+  const slot = m[side];
+  const matchDecided = !!m.winner;
+  let cls = "bf-slot", label, pic = "", seed = "";
+
+  if(slot.uid){
+    label = bfEntryName(slot.uid);
+    pic = `<div class="bf-pic" style="background-image:url('${bfPic(slot.uid)}')"></div>`;
+    if(slot.seed != null) seed = `<span class="bf-seed">${slot.seed}</span>`;
+    if(matchDecided) cls += m.winner === side ? " win" : " lose";
+  } else if(slot.resolved){
+    label = "— bye —";
+    cls = "bf-slot bye";
+  } else {
+    label = "TBD";
+    cls += " tbd";
+  }
+  return `<div class="${cls}">${seed || '<span class="bf-seed"></span>'}`
+       + `${pic || '<span class="bf-pic"></span>'}`
+       + `<span class="bf-name">${escapeHtml(label)}</span></div>`;
+}
+
+function bfRenderPrompt(){
+  const prompt = $("bf-prompt");
+  if(BF.champion){
+    prompt.innerHTML =
+      `<div class="bf-q">Champion crowned</div>`
+    + `<div class="bf-done">`
+    +   `<div class="bf-winline">`
+    +     `<div class="bf-pic" style="background-image:url('${bfPic(BF.champion)}')"></div>`
+    +     `<div class="bf-txt">🏆 <b>${escapeHtml(bfEntryName(BF.champion))}</b> wins it all</div>`
+    +   `</div>`
+    +   `<button id="bf-again" class="primary">New Bracket</button>`
+    + `</div>`;
+    $("bf-again").addEventListener("click", bfShowSetup);
+    return;
+  }
+  if(BF.current == null){
+    prompt.innerHTML = `<div class="bf-q">No matchups available</div>`;
+    return;
+  }
+  const m = BF.byId[BF.current];
+  const mk = (side) => {
+    const s = m[side];
+    return `<button class="bf-choice" data-side="${side}" `
+      + `title="${escapeHtml(bfEntryName(s.uid))}">`
+      + `<div class="bf-pic" style="background-image:url('${bfPic(s.uid)}')"></div>`
+      + `</button>`;
+  };
+  prompt.innerHTML =
+    `<div class="bf-q">${escapeHtml(bfMatchLabel(m))} · who wins?</div>`
+  + `<div class="bf-choices">${mk("a")}<span class="bf-vs">VS</span>${mk("b")}</div>`;
+  prompt.querySelectorAll(".bf-choice").forEach(b =>
+    b.addEventListener("click", () => bfPick(b.dataset.side)));
+}
+
+// ----- Pan / zoom -----
+function bfApplyTransform(){
+  const v = BF.view;
+  $("bf-stage").style.transform =
+    `translate(${v.x}px, ${v.y}px) scale(${v.scale})`;
+}
+function bfClampScale(s){ return Math.max(0.2, Math.min(3, s)); }
+
+function bfZoomAt(px, py, factor){
+  const v = BF.view;
+  const ns = bfClampScale(v.scale * factor);
+  const wx = (px - v.x) / v.scale;
+  const wy = (py - v.y) / v.scale;
+  v.scale = ns;
+  v.x = px - wx * ns;
+  v.y = py - wy * ns;
+  bfApplyTransform();
+}
+
+function bfFit(){
+  const vp = $("bf-viewport");
+  const stage = $("bf-stage");
+  const sw = parseFloat(stage.style.width) || 1;
+  const sh = parseFloat(stage.style.height) || 1;
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const s = bfClampScale(Math.min(vw / (sw + 40), vh / (sh + 40)));
+  BF.view.scale = s;
+  BF.view.x = (vw - sw * s) / 2;
+  BF.view.y = (vh - sh * s) / 2;
+  bfApplyTransform();
+}
+
+// Smoothly center the viewport on the current match (or champion).
+function bfFocusCurrent(animate){
+  const vp = $("bf-viewport");
+  const stage = $("bf-stage");
+  if(!BF.layout) return;
+  let targetX, targetY;
+  if(BF.champion && BF.layout.champX != null){
+    targetX = BF.layout.champX + 100;
+    targetY = BF.layout.champY;
+  } else if(BF.current != null){
+    const p = BF.layout.pos[BF.current];
+    if(!p) return;
+    targetX = p.x + BF.W / 2;
+    targetY = BF.layout.yCenter[BF.current];
+  } else { return; }
+  const v = BF.view;
+  v.x = vp.clientWidth / 2 - targetX * v.scale;
+  v.y = vp.clientHeight / 2 - targetY * v.scale;
+  if(animate){
+    stage.style.transition = "transform 0.28s ease";
+    bfApplyTransform();
+    setTimeout(() => { stage.style.transition = "none"; }, 300);
+  } else {
+    bfApplyTransform();
+  }
+}
+
+function bfSetupGestures(){
+  const vp = $("bf-viewport");
+  const stage = $("bf-stage");
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const mid  = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+  vp.addEventListener("pointerdown", e => {
+    if(e.target.closest(".bf-tools")) return;
+    vp.setPointerCapture(e.pointerId);
+    BF.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.style.transition = "none";
+    if(BF.pointers.size === 2){
+      const [p1, p2] = [...BF.pointers.values()];
+      BF.pinch = { d: dist(p1, p2), s: BF.view.scale };
+    }
+  });
+
+  vp.addEventListener("pointermove", e => {
+    const p = BF.pointers.get(e.pointerId);
+    if(!p) return;
+    const prev = { x: p.x, y: p.y };
+    p.x = e.clientX; p.y = e.clientY;
+
+    if(BF.pointers.size === 1){
+      BF.view.x += p.x - prev.x;
+      BF.view.y += p.y - prev.y;
+      bfApplyTransform();
+    } else if(BF.pointers.size === 2 && BF.pinch){
+      const [p1, p2] = [...BF.pointers.values()];
+      const nd = dist(p1, p2);
+      const m = mid(p1, p2);
+      const rect = vp.getBoundingClientRect();
+      const target = bfClampScale(BF.pinch.s * (nd / BF.pinch.d));
+      bfZoomAt(m.x - rect.left, m.y - rect.top, target / BF.view.scale);
+    }
+  });
+
+  const end = e => {
+    BF.pointers.delete(e.pointerId);
+    if(BF.pointers.size < 2) BF.pinch = null;
+  };
+  vp.addEventListener("pointerup", end);
+  vp.addEventListener("pointercancel", end);
+
+  vp.addEventListener("wheel", e => {
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    bfZoomAt(e.clientX - rect.left, e.clientY - rect.top,
+             e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  }, { passive: false });
+}
+
+function bfCenterZoomBtn(factor){
+  const vp = $("bf-viewport");
+  bfZoomAt(vp.clientWidth / 2, vp.clientHeight / 2, factor);
+}
+
+// ----- Setup screen -----
+function bfOpenOverlay(){
+  $("bf-overlay").classList.add("open");
+  if(!BF.settings) BF.settings = bfDefaultSettings();
+  // Forget excluded tiers that no longer exist.
+  const names = new Set(state.tiers.map(t => t.name));
+  for(const n of [...BF.settings.excluded]) if(!names.has(n)) BF.settings.excluded.delete(n);
+  bfShowSetup();
+}
+
+function bfShowSetup(){
+  const overlay = $("bf-overlay");
+  overlay.classList.remove("phase-play");
+  overlay.classList.add("phase-setup");
+  bfRenderSetup();
+}
+
+function bfRenderSetup(){
+  // Mode segmented buttons
+  $("bf-mode-seg").querySelectorAll(".bf-seg-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === BF.settings.mode);
+  });
+  $("bf-mode-hint").textContent = BF.settings.mode === 'double'
+    ? "Two losses to be eliminated — losers drop into a second bracket for a shot at the title."
+    : "One loss and you're out. Fewer matchups, faster.";
+
+  // Tier picker
+  const picker = $("bf-tier-picker");
+  picker.innerHTML = "";
+  let totalIncluded = 0;
+  if(state.tiers.length === 0){
+    picker.innerHTML = `<div class="bf-setup-hint">No tiers defined. Add tiers first.</div>`;
+  }
+  for(const t of state.tiers){
+    const count = (state.tier_items[t.name] || []).filter(id => state.items[id]).length;
+    const on = !BF.settings.excluded.has(t.name);
+    if(on) totalIncluded += count;
+    const row = document.createElement("div");
+    row.className = "bf-tier-row " + (on ? "on" : "off");
+    row.innerHTML =
+      `<div class="bf-tier-check">${on ? "✓" : ""}</div>`
+    + `<div class="bf-tier-swatch" style="background:${escapeHtml(t.color || '#888')}"></div>`
+    + `<div class="bf-tier-name">${escapeHtml(t.name)}</div>`
+    + `<div class="bf-tier-count">${count} item${count === 1 ? "" : "s"}</div>`;
+    row.addEventListener("click", () => {
+      if(BF.settings.excluded.has(t.name)) BF.settings.excluded.delete(t.name);
+      else BF.settings.excluded.add(t.name);
+      bfRenderSetup();
+    });
+    picker.appendChild(row);
+  }
+  $("bf-tiers-summary").textContent =
+    `(${totalIncluded} entr${totalIncluded === 1 ? "y" : "ies"} selected)`;
+
+  const startBtn = $("bf-start");
+  startBtn.disabled = totalIncluded < 2;
+  startBtn.textContent = totalIncluded < 2
+    ? "Need ≥ 2 entries to start"
+    : `Start ${BF.settings.mode === 'double' ? 'Double' : 'Single'}-Elim Bracket`;
+}
+
+function bfStartPlay(){
+  $("bf-overlay").classList.remove("phase-setup");
+  $("bf-overlay").classList.add("phase-play");
+  BF.view = { scale: 1, x: 0, y: 0 };
+  bfBuild();
+  bfRender();
+  // Defer fit/focus until the overlay has real dimensions.
+  requestAnimationFrame(() => {
+    if(BF.matches.length){ bfFit(); bfFocusCurrent(false); }
+  });
+}
+
+// ----- Wiring -----
+$("btn-bracket").addEventListener("click", bfOpenOverlay);
+$("bf-close").addEventListener("click", () =>
+  $("bf-overlay").classList.remove("open"));
+$("bf-restart").addEventListener("click", bfShowSetup);
+$("bf-zoom-in").addEventListener("click", () => bfCenterZoomBtn(1.25));
+$("bf-zoom-out").addEventListener("click", () => bfCenterZoomBtn(1 / 1.25));
+$("bf-fit").addEventListener("click", bfFit);
+$("bf-mode-seg").querySelectorAll(".bf-seg-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    BF.settings.mode = btn.dataset.mode;
+    bfRenderSetup();
+  });
+});
+$("bf-start").addEventListener("click", () => {
+  if($("bf-start").disabled) return;
+  bfStartPlay();
+});
+bfSetupGestures();
 
 // ----- Init -----
 function init(){
