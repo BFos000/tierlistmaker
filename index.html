@@ -644,7 +644,11 @@
   }
   .bf-choice {
     flex: 1; min-width: 0;
-    display: flex;
+    /* position-based layout instead of display:flex so we don't rely on the
+       <button> element acting as a flex container — Mobile Safari/Chrome iOS
+       fail to stretch a single flex child's cross-axis size inside a button,
+       which collapsed .bf-pic to 0 height and hid the matchup images. */
+    position: relative;
     padding: 8px;
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -652,7 +656,8 @@
   }
   .bf-choice:active { background: #333; }
   .bf-choice .bf-pic {
-    flex: 1; min-width: 0;
+    position: absolute;
+    inset: 8px;
     border-radius: 8px;
     background-size: contain;
     background-position: center;
@@ -688,8 +693,31 @@
   .bf-match.in-W.current { border-color: var(--accent); }
   .bf-match.in-L { border-color: #5a2f2f; background: #1a1414; }
   .bf-match.in-L.current { border-color: var(--accent); }
+  .bf-match.in-G { border-color: #2f3f5a; background: #14181c; }
+  .bf-match.in-G.current { border-color: var(--accent); }
   .bf-match.in-GF, .bf-match.in-GFR { border-color: #b8860b; background: #221d10; }
   .bf-match.in-GF.current, .bf-match.in-GFR.current { border-color: var(--accent); }
+
+  /* Group stage headers (drawn above their group columns in the viewport) */
+  .bf-stage-label {
+    position: absolute;
+    transform: translateX(-50%);
+    color: #cbd6e0;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .bf-group-label {
+    position: absolute;
+    transform: translateX(-50%);
+    color: #8ea7c0;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .bf-group-label .bf-group-size { color: #5a6a78; font-weight: 500; }
 
   /* Setup screen */
   .bf-setup {
@@ -702,6 +730,7 @@
   .bf-overlay.phase-setup .bf-viewport,
   .bf-overlay.phase-setup .bf-prompt,
   .bf-overlay.phase-setup #bf-restart,
+  .bf-overlay.phase-setup #bf-undo,
   .bf-overlay.phase-setup #bf-progress { display: none; }
   .bf-setup-body {
     flex: 1;
@@ -801,6 +830,65 @@
     border-top: 1px solid var(--border);
   }
   .bf-setup-footer button { width: 100%; padding: 14px; font-size: 15px; }
+  /* Group stages config */
+  .bf-stages-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .bf-stage-row {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .bf-stage-head { display: flex; align-items: center; margin-bottom: 8px; }
+  .bf-stage-num { flex: 1; font-size: 13px; font-weight: 700; color: #ddd; }
+  .bf-stage-remove {
+    width: 28px; height: 28px;
+    padding: 0;
+    font-size: 13px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .bf-stage-fields { display: flex; gap: 16px; flex-wrap: wrap; }
+  .bf-stage-field { flex: 1; min-width: 130px; }
+  .bf-stage-field label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .bf-step-row { display: flex; align-items: center; gap: 8px; }
+  .bf-step {
+    width: 36px; height: 36px;
+    padding: 0;
+    font-size: 18px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .bf-step:disabled { opacity: 0.4; }
+  .bf-step-val {
+    flex: 1;
+    text-align: center;
+    font-size: 15px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+  }
+  .bf-stage-info { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .bf-stage-warn { margin-top: 4px; font-size: 12px; color: #ffa07a; }
+  .bf-add-stage {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-size: 13px;
+    border-radius: 8px;
+  }
+  .bf-add-stage:active { background: rgba(255,255,255,0.04); }
+
   .bf-setup-warn {
     text-align: center;
     color: #ffb95a;
@@ -988,6 +1076,7 @@
   <div class="bf-header">
     <h2>⚔ Bracket Fight</h2>
     <span class="bf-progress" id="bf-progress"></span>
+    <button id="bf-undo" style="display:none;" title="Undo last pick">↶ Undo</button>
     <button id="bf-restart">Restart</button>
     <button id="bf-close">✕</button>
   </div>
@@ -1000,6 +1089,23 @@
           <button class="bf-seg-btn" type="button" data-mode="double">Double Elimination</button>
         </div>
         <div class="bf-setup-hint" id="bf-mode-hint">One loss and you're out. Fewer matchups, faster.</div>
+      </div>
+      <div class="bf-setup-section">
+        <div class="bf-setup-label">Seeding</div>
+        <div class="bf-mode-seg" id="bf-seed-seg">
+          <button class="bf-seg-btn active" type="button" data-seeding="tier">Tier Order</button>
+          <button class="bf-seg-btn" type="button" data-seeding="random">Random</button>
+        </div>
+        <div class="bf-setup-hint" id="bf-seed-hint">Top tier as #1 seed, then in-tier order. Strongest entries meet last.</div>
+      </div>
+      <div class="bf-setup-section">
+        <div class="bf-setup-label">
+          Group Stages
+          <span class="bf-setup-sub" id="bf-stages-summary"></span>
+        </div>
+        <div id="bf-stages-list" class="bf-stages-list"></div>
+        <button id="bf-add-stage" class="bf-add-stage" type="button">+ Add Group Stage</button>
+        <div class="bf-setup-hint">Optional. Group winners advance to the next stage; the final stage feeds the bracket. Seeded by group performance, tiebroken by tier-list rank.</div>
       </div>
       <div class="bf-setup-section">
         <div class="bf-setup-label">
@@ -2811,7 +2917,21 @@ function draw9Slice(ctx, srcImg, dx, dy, dw, dh, destSlice = 30, mode = 'stretch
   }
 }
 
-function renderViewCanvas(){
+// Max items per visual sub-row inside a single tier. Beyond this, the tier wraps
+// into another sub-row that still belongs to (and is labeled by) the same tier.
+const VIEW_MAX_ITEMS_PER_ROW = 10;
+
+// PNG file-size cap for the exported image. Estimating PNG size before encoding
+// is inherently approximate: PNG = (filter + DEFLATE) over RGBA, where the
+// compression ratio depends heavily on content (solid color ~0.1 B/px, busy
+// photos ~3 B/px). We use ~2.5 B/px as a conservative average for tier-list
+// content (mostly photo tiles + flat tier-label backgrounds) to pick the
+// initial backing resolution, then verify the actual blob size after encoding
+// and re-render at a lower dpr if the real PNG overshoots.
+const VIEW_MAX_PNG_BYTES = 9 * 1024 * 1024;
+const VIEW_PNG_BYTES_PER_PIXEL_ESTIMATE = 2.5;
+
+function renderViewCanvas(dprOverride){
   const canvas = $("view-canvas");
   const ctx = canvas.getContext("2d");
 
@@ -2849,37 +2969,60 @@ function renderViewCanvas(){
     }
   }
 
-  // Compute the width of each tier row at its native aspect ratio.
-  const rowWidths = state.tiers.map(t => {
+  // Split each tier into sub-rows of at most VIEW_MAX_ITEMS_PER_ROW items.
+  // Each sub-row is drawn at its own native-aspect width; tier height grows with
+  // sub-row count so all sub-rows share the same tier label on the left.
+  const tierLayouts = state.tiers.map(t => {
     const ids = state.tier_items[t.name] || [];
-    if(ids.length === 0) return 0;
-    let w = 0;
-    for(let j = 0; j < ids.length; j++){
-      const it = state.items[ids[j]];
-      if(!it) continue;
-      const img = imageForView(displayB64(it));
-      if(!img) continue;
-      const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
-      w += tileW;
-      if(j < ids.length - 1) w += GAP;
+    const subRows = [];
+    for(let s = 0; s < ids.length; s += VIEW_MAX_ITEMS_PER_ROW){
+      const chunk = ids.slice(s, s + VIEW_MAX_ITEMS_PER_ROW);
+      let w = 0;
+      for(let j = 0; j < chunk.length; j++){
+        const it = state.items[chunk[j]];
+        if(!it) continue;
+        const img = imageForView(displayB64(it));
+        if(!img) continue;
+        const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
+        w += tileW;
+        if(j < chunk.length - 1) w += GAP;
+      }
+      subRows.push({ ids: chunk, width: w });
     }
-    return w;
+    if(subRows.length === 0) subRows.push({ ids: [], width: 0 });
+    return subRows;
   });
 
-  // Content width = widest tier row (canvas grows wider if needed).
-  const contentW = Math.max(TILE_H, ...rowWidths, 0);
+  // Content width = widest sub-row across all tiers.
+  let widestSubRow = 0;
+  for(const sr of tierLayouts) for(const s of sr) if(s.width > widestSubRow) widestSubRow = s.width;
+  const contentW = Math.max(TILE_H, widestSubRow);
   const W = PAD*2 + LABEL_W + GAP + contentW;
 
-  // Each tier is a single row of fixed height.
-  const rowH = TILE_H + GAP*2;
-  const totalRowsH = rowH * state.tiers.length + ROW_GAP * Math.max(0, state.tiers.length - 1);
+  // Per-tier height: top GAP + n*TILE_H + n*GAP (one GAP after each sub-row,
+  // including the bottom). For n=1 this equals the previous TILE_H + 2*GAP.
+  const tierHeights = tierLayouts.map(sr => sr.length * TILE_H + (sr.length + 1) * GAP);
+  const totalRowsH = tierHeights.reduce((a, b) => a + b, 0)
+                   + ROW_GAP * Math.max(0, state.tiers.length - 1);
   const H = PAD*2 + totalRowsH;
 
   // Cap dpr for very wide canvases to avoid hitting browser canvas-size limits.
-  let dpr = window.devicePixelRatio || 1;
+  let dpr = (dprOverride != null) ? dprOverride : (window.devicePixelRatio || 1);
   const MAX_BACKING = 8192;
   if(W * dpr > MAX_BACKING) dpr = MAX_BACKING / W;
   if(H * dpr > MAX_BACKING) dpr = Math.min(dpr, MAX_BACKING / H);
+
+  // Cap dpr so the estimated PNG size stays under VIEW_MAX_PNG_BYTES. Real PNG
+  // size depends on content; this is the cheap pre-flight. The Save Image
+  // handler verifies the actual blob and re-renders if the estimate was too
+  // optimistic.
+  if(dprOverride == null){
+    const estBytes = (W * dpr) * (H * dpr) * VIEW_PNG_BYTES_PER_PIXEL_ESTIMATE;
+    if(estBytes > VIEW_MAX_PNG_BYTES){
+      const scale = Math.sqrt(VIEW_MAX_PNG_BYTES / estBytes);
+      dpr = Math.max(0.25, dpr * scale);
+    }
+  }
 
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
@@ -2893,6 +3036,8 @@ function renderViewCanvas(){
   let y = PAD;
   for(let i = 0; i < state.tiers.length; i++){
     const t = state.tiers[i];
+    const rowH = tierHeights[i];
+    const subRows = tierLayouts[i];
     const adv = !!t.advanced;
     const bg = t.color || '#888888';
     const fontC = adv && t.font_color ? t.font_color : fgFor(bg);
@@ -2901,7 +3046,7 @@ function renderViewCanvas(){
     const pattern = adv ? (t.border_pattern || 'plain') : 'plain';
     const borderC = adv && t.border_color ? t.border_color : '#222222';
 
-    // Tier label background
+    // Tier label background — spans the full tier height (all sub-rows).
     ctx.fillStyle = bg;
     ctx.fillRect(PAD, y, LABEL_W, rowH);
     if(bgTex !== 'normal'){
@@ -2934,7 +3079,7 @@ function renderViewCanvas(){
       ctx.strokeRect(PAD + 0.5, y + 0.5, LABEL_W - 1, rowH - 1);
     }
 
-    // Tier label text
+    // Tier label text — vertically centered within the full tier height.
     ctx.fillStyle = fontC;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -2951,22 +3096,24 @@ function renderViewCanvas(){
       ctx.fillText(line, PAD + LABEL_W/2, lblStartY + li * lineH);
     });
 
-    // Tier content background — only as wide as the actual row, with the rest of the canvas
-    // staying at the page background. This keeps short tiers visually clean.
+    // Tier content background — full tier height, contentW wide.
     ctx.fillStyle = "#0f0f0f";
     ctx.fillRect(PAD + LABEL_W + GAP, y, contentW, rowH);
 
-    // Draw tiles in a single row, native aspect.
-    const ids = state.tier_items[t.name] || [];
-    let x = PAD + LABEL_W + GAP;
-    for(let j = 0; j < ids.length; j++){
-      const it = state.items[ids[j]];
-      if(!it) continue;
-      const img = imageForView(displayB64(it));
-      if(!img) continue;
-      const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
-      ctx.drawImage(img, x, y + GAP, tileW, TILE_H);
-      x += tileW + GAP;
+    // Draw each sub-row of tiles (max VIEW_MAX_ITEMS_PER_ROW per sub-row).
+    let subY = y + GAP;
+    for(const sub of subRows){
+      let x = PAD + LABEL_W + GAP;
+      for(const uid of sub.ids){
+        const it = state.items[uid];
+        if(!it) continue;
+        const img = imageForView(displayB64(it));
+        if(!img) continue;
+        const tileW = TILE_H * (img.naturalWidth / img.naturalHeight);
+        ctx.drawImage(img, x, subY, tileW, TILE_H);
+        x += tileW + GAP;
+      }
+      subY += TILE_H + GAP;
     }
 
     y += rowH + ROW_GAP;
@@ -2989,19 +3136,40 @@ function imageForView(b64){
 
 $("btn-view-share").addEventListener("click", async () => {
   const canvas = $("view-canvas");
-  canvas.toBlob(async (blob) => {
-    if(!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
-    a.download = `tierlist_view_${ts}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Image saved");
-  }, "image/png");
+  const toBlobPng = () => new Promise(res => canvas.toBlob(res, "image/png"));
+
+  // Encode once, then verify against the 9MB cap. If the pre-render estimate
+  // (2.5 B/px) was too optimistic for this content, derive the real bytes/pixel
+  // ratio from the actual blob and re-render at a dpr that satisfies the cap.
+  let blob = await toBlobPng();
+  let attempts = 0;
+  while(blob && blob.size > VIEW_MAX_PNG_BYTES && attempts < 3){
+    const cssW = parseFloat(canvas.style.width) || canvas.width;
+    const cssH = parseFloat(canvas.style.height) || canvas.height;
+    const currentDpr = canvas.width / cssW;
+    // Solve: (cssW * newDpr) * (cssH * newDpr) * actualBytesPerPixel <= cap
+    const actualBpp = blob.size / (canvas.width * canvas.height);
+    const targetPixels = VIEW_MAX_PNG_BYTES / actualBpp;
+    const cssPixels = cssW * cssH;
+    const newDpr = Math.max(0.25, Math.sqrt(targetPixels / cssPixels) * 0.95);
+    if(newDpr >= currentDpr) break; // nothing more we can do
+    renderViewCanvas(newDpr);
+    blob = await toBlobPng();
+    attempts++;
+  }
+  if(!blob) return;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.download = `tierlist_view_${ts}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const mb = (blob.size / (1024*1024)).toFixed(1);
+  showToast(`Image saved (${mb} MB)`);
 });
 
 // ----- Selection banner buttons -----
@@ -3034,18 +3202,29 @@ const BF = {
   PAD_TOP: 56,
   PAD_LEFT: 24,
   // Bracket graph
-  matches: [],       // generic match list (WB, LB, GF, GFR)
+  matches: [],       // generic match list (G, W, L, GF, GFR)
   byId: {},          // id -> match
-  entries: [],       // uid[] in seed order (1-indexed via seed)
+  entries: [],       // uid[] in seed order for the bracket (1-indexed via seed)
   wb: [],            // wb[round] = [matchId]
   lb: [],            // lb[round] = [matchId]
   k: 0,              // WB round count
   gfId: null,        // id of Grand Final match (double-elim)
   gfrId: null,       // id of Bracket Reset match (double-elim, gated)
+  // Group stages (executed before the bracket). Each stage:
+  //   { stageIdx, numGroups, qualifyPerGroup,
+  //     groups: [{ idx, entries:[uid], matchIds:[id] }] }
+  groupStages: [],
+  // Tier-list flat rank per uid (0-based). Used as the universal tiebreaker for
+  // group standings — independent of the chosen seeding mode (tier/random).
+  tierRank: new Map(),
+  // Monotonic match id counter — survives teardown/rebuild so a stale id never
+  // collides with a fresh match.
+  idCounter: 0,
   // Play state
   champion: null,
   current: null,     // match id awaiting a manual pick, or null
   decidable: 0, decided: 0,
+  history: [],       // stack of { matchId } in pick order — used by Undo
   // Viewport
   view: { scale: 1, x: 0, y: 0 },
   pointers: new Map(),
@@ -3078,7 +3257,14 @@ function bfSeedOrder(size){
 }
 
 function bfDefaultSettings(){
-  return { mode: 'single', excluded: new Set() };
+  return {
+    mode: 'single',
+    seeding: 'tier',
+    excluded: new Set(),
+    // Group stages to play before the bracket. Each entry: { numGroups, qualifyPerGroup }.
+    // Empty array means "bracket only" (previous behavior).
+    groupStages: [],
+  };
 }
 
 function bfCollectEntries(){
@@ -3089,46 +3275,85 @@ function bfCollectEntries(){
       if(state.items[id]) seeded.push(id);
     }
   }
+  if(BF.settings.seeding === 'random'){
+    // Fisher–Yates shuffle so the resulting seed order is uniformly random.
+    for(let i = seeded.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [seeded[i], seeded[j]] = [seeded[j], seeded[i]];
+    }
+  }
   return seeded;
 }
 
-// Build a fresh bracket from current settings & tier placements.
+// Allocate a new match. Shared by group + bracket builders.
+function bfMakeMatch(props){
+  const m = {
+    id: BF.idCounter++,
+    a: { uid: null, seed: null, resolved: false },
+    b: { uid: null, seed: null, resolved: false },
+    winner: null,
+    gated: false,
+    skipped: false,
+    byeWin: false,
+    ...props,
+  };
+  BF.matches.push(m);
+  BF.byId[m.id] = m;
+  return m;
+}
+
+// Build a fresh tournament from current settings & tier placements.
+// If group stages are configured, only the first stage is constructed up front —
+// subsequent stages and the bracket are built lazily as each stage completes,
+// since their seeding depends on group results.
 function bfBuild(){
   BF.matches = []; BF.byId = {};
   BF.wb = []; BF.lb = []; BF.k = 0;
   BF.gfId = null; BF.gfrId = null;
   BF.champion = null; BF.current = null;
   BF.decidable = 0; BF.decided = 0;
+  BF.history = [];
+  BF.groupStages = [];
+  BF.tierRank = new Map();
+  BF.idCounter = 0;
+
+  // Universal tiebreaker rank: tier-list flat order, ignoring seeding setting.
+  let r = 0;
+  for(const t of state.tiers){
+    if(BF.settings.excluded.has(t.name)) continue;
+    for(const id of (state.tier_items[t.name] || [])){
+      if(state.items[id]) BF.tierRank.set(id, r++);
+    }
+  }
 
   const seeded = bfCollectEntries();
   BF.entries = seeded;
   if(seeded.length < 2) return;
 
-  let size = 1;
-  while(size < seeded.length) size *= 2;
-  const order = bfSeedOrder(size);
+  if((BF.settings.groupStages || []).length > 0){
+    bfBuildGroupStage(0, seeded);
+    bfResolve();
+    return;
+  }
 
-  let nextId = 0;
-  const mk = (props) => {
-    const m = {
-      id: nextId++,
-      a: { uid: null, seed: null, resolved: false },
-      b: { uid: null, seed: null, resolved: false },
-      winner: null,
-      gated: false,
-      skipped: false,
-      byeWin: false,
-      ...props,
-    };
-    BF.matches.push(m);
-    BF.byId[m.id] = m;
-    return m;
-  };
+  bfBuildBracket(seeded);
+  bfResolve();
+}
+
+// Build the WB (+ LB / GF / GFR for double-elim) from a list of entries.
+// Sets BF.entries to `entries` first so the existing `seed`-kind sources resolve.
+function bfBuildBracket(entries){
+  BF.entries = entries;
+  if(entries.length < 2) return;
+
+  let size = 1;
+  while(size < entries.length) size *= 2;
+  const order = bfSeedOrder(size);
 
   // -------- Winners Bracket --------
   const wb1 = [];
   for(let i = 0; i < size; i += 2){
-    const m = mk({
+    const m = bfMakeMatch({
       bracket: 'W', round: 0, idx: wb1.length,
       aSrc: { kind: 'seed', s: order[i] },
       bSrc: { kind: 'seed', s: order[i + 1] },
@@ -3140,7 +3365,7 @@ function bfBuild(){
     const prev = BF.wb[BF.wb.length - 1];
     const next = [];
     for(let i = 0; i < prev.length; i += 2){
-      const m = mk({
+      const m = bfMakeMatch({
         bracket: 'W', round: BF.wb.length, idx: next.length,
         aSrc: { kind: 'win', id: prev[i] },
         bSrc: { kind: 'win', id: prev[i + 1] },
@@ -3152,10 +3377,7 @@ function bfBuild(){
   BF.k = BF.wb.length;
   const wbFinalId = BF.wb[BF.k - 1][0];
 
-  if(BF.settings.mode !== 'double'){
-    bfResolve();
-    return;
-  }
+  if(BF.settings.mode !== 'double') return;
 
   // -------- Losers Bracket --------
   let lbFinalId = null;
@@ -3163,7 +3385,7 @@ function bfBuild(){
     // LBR1: pairs of WBR1 losers.
     const lb1 = [];
     for(let i = 0; i < wb1.length; i += 2){
-      const m = mk({
+      const m = bfMakeMatch({
         bracket: 'L', round: 0, idx: lb1.length,
         aSrc: { kind: 'lose', id: wb1[i] },
         bSrc: { kind: 'lose', id: wb1[i + 1] },
@@ -3178,7 +3400,7 @@ function bfBuild(){
       const lbPrev = BF.lb[BF.lb.length - 1];
       const major = [];
       for(let j = 0; j < lbPrev.length; j++){
-        const m = mk({
+        const m = bfMakeMatch({
           bracket: 'L', round: BF.lb.length, idx: major.length,
           aSrc: { kind: 'win',  id: lbPrev[j] },
           bSrc: { kind: 'lose', id: wbDrops[j] },
@@ -3189,7 +3411,7 @@ function bfBuild(){
       if(major.length > 1){
         const minor = [];
         for(let j = 0; j < major.length; j += 2){
-          const m = mk({
+          const m = bfMakeMatch({
             bracket: 'L', round: BF.lb.length, idx: minor.length,
             aSrc: { kind: 'win', id: major[j] },
             bSrc: { kind: 'win', id: major[j + 1] },
@@ -3203,21 +3425,78 @@ function bfBuild(){
   }
 
   // -------- Grand Final + Bracket Reset (gated) --------
-  const gf = mk({
+  const gf = bfMakeMatch({
     bracket: 'GF', round: 0, idx: 0,
     aSrc: { kind: 'win', id: wbFinalId },
     bSrc: (BF.k === 1) ? { kind: 'lose', id: wbFinalId }
                        : { kind: 'win',  id: lbFinalId },
   });
   BF.gfId = gf.id;
-  const gfr = mk({
+  const gfr = bfMakeMatch({
     bracket: 'GFR', round: 0, idx: 0,
     aSrc: { kind: 'lose', id: gf.id },
     bSrc: { kind: 'win',  id: gf.id },
     gated: true,
   });
   BF.gfrId = gfr.id;
-  bfResolve();
+}
+
+// Distribute `entries` (in seed order) across `numGroups` using a snake pattern:
+//   seed 1..G → groups 0..G-1, seed G+1..2G → groups G-1..0, etc.
+// This keeps groups balanced by strength (so the best seeds aren't bunched
+// together) and handles any remainder gracefully — leftover entries land in
+// the lower-indexed groups, making them at most 1 entry larger than others.
+function bfDistributeIntoGroups(entries, numGroups){
+  const groups = Array.from({ length: numGroups }, () => []);
+  for(let i = 0; i < entries.length; i++){
+    const round = Math.floor(i / numGroups);
+    const slot  = i % numGroups;
+    const g = (round % 2 === 0) ? slot : (numGroups - 1 - slot);
+    groups[g].push(entries[i]);
+  }
+  return groups;
+}
+
+// Build group stage `stageIdx` from a seed-ordered list of `entries`.
+// Generates a full round-robin per group; slots are pre-populated (kind 'set').
+function bfBuildGroupStage(stageIdx, entries){
+  const cfg = BF.settings.groupStages[stageIdx];
+  if(!cfg) return;
+  const numGroups = Math.max(1, cfg.numGroups | 0);
+  const qualifyPerGroup = Math.max(1, cfg.qualifyPerGroup | 0);
+  const groupEntries = bfDistributeIntoGroups(entries, numGroups);
+
+  const groups = [];
+  for(let g = 0; g < numGroups; g++){
+    const grpEntries = groupEntries[g];
+    const matchIds = [];
+    // Full round-robin: every pair plays once.
+    for(let i = 0; i < grpEntries.length; i++){
+      for(let j = i + 1; j < grpEntries.length; j++){
+        const m = bfMakeMatch({
+          bracket: 'G',
+          groupStageIdx: stageIdx,
+          groupIdx: g,
+          round: 0,
+          idx: matchIds.length,
+          aSrc: { kind: 'set' },
+          bSrc: { kind: 'set' },
+        });
+        // Pre-populate slots so they're stable across bfResolve passes.
+        m.a.uid = grpEntries[i]; m.a.resolved = true;
+        m.b.uid = grpEntries[j]; m.b.resolved = true;
+        matchIds.push(m.id);
+      }
+    }
+    groups.push({ idx: g, entries: grpEntries, matchIds });
+  }
+
+  BF.groupStages.push({
+    stageIdx,
+    numGroups,
+    qualifyPerGroup,
+    groups,
+  });
 }
 
 // ---- Resolution ----
@@ -3226,6 +3505,11 @@ function bfResolveSlot(slot, src){
     slot.uid = BF.entries[src.s - 1] || null;
     slot.seed = src.s;
     slot.resolved = true;
+    return;
+  }
+  if(src.kind === 'set'){
+    // Group-stage slots are populated at build time. Mark resolved if uid is set.
+    slot.resolved = slot.uid != null;
     return;
   }
   const ref = BF.byId[src.id];
@@ -3242,7 +3526,9 @@ function bfResolveSlot(slot, src){
   }
 }
 
-function bfResolve(){
+// Single fixed-point pass: resolve slots from sources, gate/skip GFR, and
+// auto-advance byes. Runs until no field changes (capped at 100 passes).
+function bfResolveOnce(){
   for(let pass = 0; pass < 100; pass++){
     let changed = false;
     for(const m of BF.matches){
@@ -3261,8 +3547,9 @@ function bfResolve(){
       } else {
         bfResolveSlot(m.a, m.aSrc);
         bfResolveSlot(m.b, m.bSrc);
-        // Auto-advance byes (one side definitively absent).
-        if(m.winner == null && m.a.resolved && m.b.resolved){
+        // Auto-advance byes (one side definitively absent). Group matches skip
+        // this — their slots are pre-set and a missing uid should never happen.
+        if(m.bracket !== 'G' && m.winner == null && m.a.resolved && m.b.resolved){
           if(m.a.uid && !m.b.uid){ m.winner = 'a'; m.byeWin = true; }
           else if(m.b.uid && !m.a.uid){ m.winner = 'b'; m.byeWin = true; }
           else if(!m.a.uid && !m.b.uid){ m.winner = 'a'; m.byeWin = true; }
@@ -3273,21 +3560,31 @@ function bfResolve(){
     }
     if(!changed) break;
   }
+}
+
+function bfResolve(){
+  bfResolveOnce();
+  // After resolution, check if a completed group stage should trigger the
+  // next stage / bracket to be built, then re-resolve over the new matches.
+  while(bfTryAdvanceStage()) bfResolveOnce();
 
   // Champion
   BF.champion = null;
-  if(BF.settings.mode === 'single'){
-    const last = BF.matches[BF.matches.length - 1];
-    if(last && last.winner) BF.champion = last[last.winner].uid;
-  } else {
-    const gf  = BF.byId[BF.gfId];
-    const gfr = BF.byId[BF.gfrId];
-    if(gf && gf.winner === 'a') BF.champion = gf.a.uid;
-    else if(gf && gf.winner === 'b' && gfr && !gfr.skipped && gfr.winner)
-      BF.champion = gfr[gfr.winner].uid;
+  if(BF.wb.length){
+    if(BF.settings.mode === 'single'){
+      const wbFinal = BF.byId[BF.wb[BF.wb.length - 1][0]];
+      if(wbFinal && wbFinal.winner) BF.champion = wbFinal[wbFinal.winner].uid;
+    } else {
+      const gf  = BF.byId[BF.gfId];
+      const gfr = BF.byId[BF.gfrId];
+      if(gf && gf.winner === 'a') BF.champion = gf.a.uid;
+      else if(gf && gf.winner === 'b' && gfr && !gfr.skipped && gfr.winner)
+        BF.champion = gfr[gfr.winner].uid;
+    }
   }
 
-  // Progress / current pointer
+  // Progress / current pointer. Walk matches in id order so group matches
+  // come before the bracket and are surfaced first.
   BF.current = null;
   let decidable = 0, decided = 0;
   for(const m of BF.matches){
@@ -3303,15 +3600,174 @@ function bfResolve(){
   BF.decided = decided;
 }
 
+// ---- Group standings + stage advancement ----
+
+// Returns standings for one group: [{uid, wins}] sorted by wins desc, then by
+// tier-list rank asc (universal tiebreaker — independent of seeding mode).
+function bfGroupStandings(stageIdx, groupIdx){
+  const stage = BF.groupStages[stageIdx];
+  const grp = stage.groups[groupIdx];
+  const wins = new Map();
+  for(const uid of grp.entries) wins.set(uid, 0);
+  for(const matchId of grp.matchIds){
+    const m = BF.byId[matchId];
+    if(m && m.winner){
+      const winnerUid = m[m.winner].uid;
+      wins.set(winnerUid, (wins.get(winnerUid) || 0) + 1);
+    }
+  }
+  const tr = uid => BF.tierRank.get(uid) ?? Number.MAX_SAFE_INTEGER;
+  return [...grp.entries]
+    .map(uid => ({ uid, wins: wins.get(uid) || 0 }))
+    .sort((a, b) => (b.wins - a.wins) || (tr(a.uid) - tr(b.uid)));
+}
+
+// Has every match in this group stage been decided?
+function bfStageComplete(stageIdx){
+  const stage = BF.groupStages[stageIdx];
+  if(!stage) return false;
+  for(const grp of stage.groups){
+    for(const id of grp.matchIds){
+      const m = BF.byId[id];
+      if(!m || m.winner == null) return false;
+    }
+  }
+  return true;
+}
+
+// Returns the seed-ordered list of qualifiers from this group stage.
+// Cross-group seeding: all 1st-placers first (sorted by wins, tier-rank),
+// then all 2nd-placers, etc. — matches the practice of seeding pool winners
+// against pool runners-up in the next stage.
+function bfStageQualifiers(stageIdx){
+  const stage = BF.groupStages[stageIdx];
+  const standings = stage.groups.map((_, gi) => bfGroupStandings(stageIdx, gi));
+  const tr = uid => BF.tierRank.get(uid) ?? Number.MAX_SAFE_INTEGER;
+  const out = [];
+  for(let pos = 0; pos < stage.qualifyPerGroup; pos++){
+    const samePlace = [];
+    for(let g = 0; g < stage.groups.length; g++){
+      const entry = standings[g][pos];
+      if(entry) samePlace.push(entry);
+    }
+    samePlace.sort((a, b) => (b.wins - a.wins) || (tr(a.uid) - tr(b.uid)));
+    for(const x of samePlace) out.push(x.uid);
+  }
+  return out;
+}
+
+// If the latest-built stage is complete, build the next stage (or the bracket)
+// from its qualifiers. Returns true when new matches were created, signalling
+// the resolver to run another pass.
+function bfTryAdvanceStage(){
+  const totalStages = (BF.settings.groupStages || []).length;
+  if(totalStages === 0) return false;
+  const builtStages = BF.groupStages.length;
+  if(builtStages === 0) return false;
+  const lastBuilt = builtStages - 1;
+  if(!bfStageComplete(lastBuilt)) return false;
+
+  const qualifiers = bfStageQualifiers(lastBuilt);
+  if(builtStages < totalStages){
+    bfBuildGroupStage(builtStages, qualifiers);
+    return true;
+  }
+  // All group stages done — build the bracket if we haven't already.
+  if(BF.wb.length === 0 && qualifiers.length >= 2){
+    bfBuildBracket(qualifiers);
+    return true;
+  }
+  return false;
+}
+
 function bfPick(side){
   if(BF.current == null) return;
   const m = BF.byId[BF.current];
   if(!m) return;
   m.winner = side;
   m.byeWin = false;
+  BF.history.push({ matchId: m.id });
   bfResolve();
   bfRender();
   bfFocusCurrent(true);
+}
+
+// All matches reachable downstream from `matchId` via win/lose source links.
+// Used by undo so we also clear picks that were only possible because of the
+// pick we're reverting.
+function bfDescendants(matchId){
+  const set = new Set();
+  const queue = [matchId];
+  while(queue.length){
+    const id = queue.shift();
+    for(const mm of BF.matches){
+      const usesA = (mm.aSrc.kind === 'win' || mm.aSrc.kind === 'lose') && mm.aSrc.id === id;
+      const usesB = (mm.bSrc.kind === 'win' || mm.bSrc.kind === 'lose') && mm.bSrc.id === id;
+      if((usesA || usesB) && !set.has(mm.id)){
+        set.add(mm.id);
+        queue.push(mm.id);
+      }
+    }
+  }
+  // GFR's gating depends on GF's outcome but its sources aren't win/lose of GF —
+  // include it explicitly when undoing GF so the Bracket Reset's pick clears too.
+  if(matchId === BF.gfId && BF.gfrId != null) set.add(BF.gfrId);
+  return set;
+}
+
+function bfUndo(){
+  if(!BF.history.length) return;
+  const last = BF.history.pop();
+  const m = BF.byId[last.matchId];
+  if(!m) return;
+  m.winner = null;
+  m.byeWin = false;
+
+  if(m.bracket === 'G'){
+    // Group matches don't have win/lose source links to downstream matches —
+    // their influence flows via stage qualifiers. If the stage was previously
+    // complete and seeded the next stage / bracket, those need to be torn down
+    // so the resolver can rebuild them once the standings are valid again.
+    bfTearDownAfterStage(m.groupStageIdx);
+  } else {
+    const desc = bfDescendants(last.matchId);
+    for(const id of desc){
+      const mm = BF.byId[id];
+      if(!mm) continue;
+      mm.winner = null;
+      mm.byeWin = false;
+    }
+    // Drop downstream picks from history too — they're no longer reachable.
+    BF.history = BF.history.filter(h => !desc.has(h.matchId));
+  }
+
+  bfResolve();
+  bfRender();
+  bfFocusCurrent(true);
+}
+
+// Remove all matches built downstream of `stageIdx`: later group stages and
+// the bracket. Match ids never reset, so any stale references in history are
+// dropped too.
+function bfTearDownAfterStage(stageIdx){
+  const idsToDelete = new Set();
+  for(let s = stageIdx + 1; s < BF.groupStages.length; s++){
+    for(const grp of BF.groupStages[s].groups){
+      for(const id of grp.matchIds) idsToDelete.add(id);
+    }
+  }
+  for(const row of BF.wb) for(const id of row) idsToDelete.add(id);
+  for(const row of BF.lb) for(const id of row) idsToDelete.add(id);
+  if(BF.gfId  != null) idsToDelete.add(BF.gfId);
+  if(BF.gfrId != null) idsToDelete.add(BF.gfrId);
+  if(idsToDelete.size === 0) return;
+
+  BF.matches = BF.matches.filter(mm => !idsToDelete.has(mm.id));
+  for(const id of idsToDelete) delete BF.byId[id];
+  BF.wb = []; BF.lb = []; BF.k = 0;
+  BF.gfId = null; BF.gfrId = null;
+  BF.groupStages.length = stageIdx + 1;
+  BF.history = BF.history.filter(h => !idsToDelete.has(h.matchId));
 }
 
 // ---- Labels ----
@@ -3332,11 +3788,21 @@ function bfLBLabel(round){
   if(round === BF.lb.length - 1) return "LB Final";
   return "LB R" + (round + 1);
 }
+function bfGroupLetter(idx){
+  if(idx < 26) return String.fromCharCode(65 + idx);
+  return `${bfGroupLetter(Math.floor(idx / 26) - 1)}${String.fromCharCode(65 + (idx % 26))}`;
+}
 function bfMatchLabel(m){
   if(m.bracket === 'W')   return bfWBLabel(m.round);
   if(m.bracket === 'L')   return bfLBLabel(m.round);
   if(m.bracket === 'GF')  return "Grand Final";
   if(m.bracket === 'GFR') return "Bracket Reset";
+  if(m.bracket === 'G'){
+    const stageLabel = ((BF.settings.groupStages || []).length > 1)
+      ? `Stage ${m.groupStageIdx + 1} · `
+      : "";
+    return `${stageLabel}Group ${bfGroupLetter(m.groupIdx)}`;
+  }
   return "Match";
 }
 
@@ -3346,10 +3812,47 @@ function bfComputeLayout(){
   const pos = {};
   const yCenter = {};
 
-  // WB centers
+  // Heights of label rows above each group stage and each group column.
+  const STAGE_HEADER_H = 26;
+  const GROUP_HEADER_H = 22;
+
+  // -------- Group stage bands --------
+  // Each built stage gets a horizontal band: groups laid out left-to-right,
+  // matches within a group stacked vertically.
+  const groupBands = [];
+  let bandY = PAD_TOP;
+  for(const stage of BF.groupStages){
+    const bandTop = bandY;
+    const matchesTop = bandTop + STAGE_HEADER_H + GROUP_HEADER_H;
+    let maxMatches = 0;
+    for(let gi = 0; gi < stage.groups.length; gi++){
+      const grp = stage.groups[gi];
+      if(grp.matchIds.length > maxMatches) maxMatches = grp.matchIds.length;
+      const gx = PAD_LEFT + gi * (W + COL_GAP);
+      for(let mi = 0; mi < grp.matchIds.length; mi++){
+        const id = grp.matchIds[mi];
+        const my = matchesTop + mi * (MATCH_H + V_GAP);
+        pos[id] = { x: gx, y: my };
+        yCenter[id] = my + MATCH_H / 2;
+      }
+    }
+    const bandBot = matchesTop +
+                    (maxMatches > 0 ? maxMatches * (MATCH_H + V_GAP) - V_GAP : 0);
+    groupBands.push({
+      stageIdx: stage.stageIdx,
+      top: bandTop, bot: bandBot,
+      stageHeaderY: bandTop,
+      groupHeaderY: bandTop + STAGE_HEADER_H,
+      matchesTop,
+    });
+    bandY = bandBot + BAND_GAP;
+  }
+  const bracketY = bandY;
+
+  // -------- Winners Bracket --------
   if(BF.wb.length){
     BF.wb[0].forEach((id, j) => {
-      yCenter[id] = PAD_TOP + j * (MATCH_H + V_GAP) + MATCH_H / 2;
+      yCenter[id] = bracketY + j * (MATCH_H + V_GAP) + MATCH_H / 2;
     });
     for(let r = 1; r < BF.wb.length; r++){
       const prev = BF.wb[r - 1];
@@ -3358,13 +3861,13 @@ function bfComputeLayout(){
       });
     }
   }
-  const wbBandTop = PAD_TOP;
+  const wbBandTop = bracketY;
   const wbBandBot = BF.wb.length
-    ? PAD_TOP + BF.wb[0].length * (MATCH_H + V_GAP) - V_GAP
-    : PAD_TOP;
+    ? bracketY + BF.wb[0].length * (MATCH_H + V_GAP) - V_GAP
+    : bracketY;
 
   // LB centers (own band below WB)
-  const lbBandTop = wbBandBot + BAND_GAP;
+  const lbBandTop = wbBandBot + (BF.lb.length ? BAND_GAP : 0);
   let lbBandBot = lbBandTop;
   if(BF.lb.length){
     BF.lb[0].forEach((id, j) => {
@@ -3391,6 +3894,8 @@ function bfComputeLayout(){
   let maxCol = -1;
   for(let r = 0; r < BF.wb.length; r++) maxCol = Math.max(maxCol, wbCol(r));
   for(let r = 0; r < BF.lb.length; r++) maxCol = Math.max(maxCol, lbCol(r));
+  // Group stage bands span their group count in columns.
+  for(const stage of BF.groupStages) maxCol = Math.max(maxCol, stage.groups.length - 1);
 
   const colToX = c => PAD_LEFT + c * (W + COL_GAP);
   for(let r = 0; r < BF.wb.length; r++){
@@ -3428,8 +3933,12 @@ function bfComputeLayout(){
   }
 
   const stageW = colToX(maxCol < 0 ? 0 : maxCol) + W + 100;
-  const stageH = Math.max(wbBandBot, lbBandBot, gfrY + MATCH_H) + PAD_TOP;
-  return { pos, yCenter, stageW, stageH, champX, champY, wbBandTop, lbBandTop };
+  const lastBandBot = groupBands.length ? groupBands[groupBands.length - 1].bot : PAD_TOP;
+  const stageH = Math.max(wbBandBot, lbBandBot, gfrY + MATCH_H, lastBandBot) + PAD_TOP;
+  return {
+    pos, yCenter, stageW, stageH, champX, champY,
+    wbBandTop, lbBandTop, groupBands,
+  };
 }
 
 // ----- DOM render -----
@@ -3450,7 +3959,7 @@ function bfRender(){
 
   const L = bfComputeLayout();
   BF.layout = L;
-  const { W, MATCH_H } = BF;
+  const { W, MATCH_H, PAD_LEFT, COL_GAP } = BF;
   stage.style.width  = L.stageW + "px";
   stage.style.height = L.stageH + "px";
 
@@ -3494,6 +4003,29 @@ function bfRender(){
 
   let html = `<svg class="bf-links" width="${L.stageW}" height="${L.stageH}">${paths}</svg>`;
 
+  // ---- Group stage labels ----
+  const totalStages = (BF.settings.groupStages || []).length;
+  for(let s = 0; s < BF.groupStages.length; s++){
+    const gs = BF.groupStages[s];
+    const band = L.groupBands[s];
+    if(!band) continue;
+    const groupCount = gs.groups.length;
+    const bandRightX = PAD_LEFT + groupCount * W + Math.max(0, groupCount - 1) * COL_GAP;
+    const stageCenterX = (PAD_LEFT + bandRightX) / 2;
+    const stageLabel = totalStages > 1
+      ? `Stage ${s + 1} · Top ${gs.qualifyPerGroup} advance`
+      : `Group Stage · Top ${gs.qualifyPerGroup} advance`;
+    html += `<div class="bf-stage-label" style="left:${stageCenterX}px;`
+         +  `top:${band.stageHeaderY}px;">${escapeHtml(stageLabel)}</div>`;
+    for(let gi = 0; gi < gs.groups.length; gi++){
+      const grp = gs.groups[gi];
+      const gx = PAD_LEFT + gi * (W + COL_GAP) + W / 2;
+      html += `<div class="bf-group-label" style="left:${gx}px;`
+           +  `top:${band.groupHeaderY}px;">Group ${escapeHtml(bfGroupLetter(gi))}`
+           +  `<span class="bf-group-size"> · ${grp.entries.length}</span></div>`;
+    }
+  }
+
   // ---- Round labels ----
   for(let r = 0; r < BF.wb.length; r++){
     const id = BF.wb[r][0];
@@ -3508,15 +4040,17 @@ function bfRender(){
          +  `${escapeHtml(bfLBLabel(r))}</div>`;
   }
   if(BF.gfId != null && L.pos[BF.gfId]){
+    const gfLabelY = Math.max(20, L.pos[BF.gfId].y - 28);
     html += `<div class="bf-round-label" style="left:${L.pos[BF.gfId].x + W / 2}px;`
-         +  `top:20px;color:#cba34a;">Grand Final</div>`;
+         +  `top:${gfLabelY}px;color:#cba34a;">Grand Final</div>`;
   }
   if(BF.gfrId != null && L.pos[BF.gfrId]){
     const gfr = BF.byId[BF.gfrId];
     if(!gfr.skipped){
       const dim = gfr.gated ? "color:#5a4520;" : "color:#cba34a;";
+      const gfrLabelY = Math.max(20, L.pos[BF.gfrId].y - 28);
       html += `<div class="bf-round-label" style="left:${L.pos[BF.gfrId].x + W / 2}px;`
-           +  `top:20px;${dim}">Bracket Reset</div>`;
+           +  `top:${gfrLabelY}px;${dim}">Bracket Reset</div>`;
     }
   }
 
@@ -3550,6 +4084,7 @@ function bfRender(){
 
   $("bf-progress").textContent = BF.champion
     ? "Complete" : `${BF.decided} / ${BF.decidable} decided`;
+  $("bf-undo").style.display = BF.history.length > 0 ? "" : "none";
 }
 
 function bfSlotHtml(m, side){
@@ -3728,6 +4263,8 @@ function bfCenterZoomBtn(factor){
 function bfOpenOverlay(){
   $("bf-overlay").classList.add("open");
   if(!BF.settings) BF.settings = bfDefaultSettings();
+  if(!BF.settings.seeding) BF.settings.seeding = 'tier';
+  if(!Array.isArray(BF.settings.groupStages)) BF.settings.groupStages = [];
   // Forget excluded tiers that no longer exist.
   const names = new Set(state.tiers.map(t => t.name));
   for(const n of [...BF.settings.excluded]) if(!names.has(n)) BF.settings.excluded.delete(n);
@@ -3749,6 +4286,14 @@ function bfRenderSetup(){
   $("bf-mode-hint").textContent = BF.settings.mode === 'double'
     ? "Two losses to be eliminated — losers drop into a second bracket for a shot at the title."
     : "One loss and you're out. Fewer matchups, faster.";
+
+  // Seeding segmented buttons
+  $("bf-seed-seg").querySelectorAll(".bf-seg-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.seeding === BF.settings.seeding);
+  });
+  $("bf-seed-hint").textContent = BF.settings.seeding === 'random'
+    ? "Entries shuffled before seeding — every bracket is a fresh draw."
+    : "Top tier as #1 seed, then in-tier order. Strongest entries meet last.";
 
   // Tier picker
   const picker = $("bf-tier-picker");
@@ -3778,11 +4323,110 @@ function bfRenderSetup(){
   $("bf-tiers-summary").textContent =
     `(${totalIncluded} entr${totalIncluded === 1 ? "y" : "ies"} selected)`;
 
+  // Group stages + final-bracket entry count.
+  const stagesResult = bfRenderStagesSection(totalIncluded);
+
   const startBtn = $("bf-start");
-  startBtn.disabled = totalIncluded < 2;
-  startBtn.textContent = totalIncluded < 2
-    ? "Need ≥ 2 entries to start"
-    : `Start ${BF.settings.mode === 'double' ? 'Double' : 'Single'}-Elim Bracket`;
+  const tooFew = totalIncluded < 2;
+  startBtn.disabled = tooFew || !stagesResult.valid || stagesResult.bracketEntries < 2;
+  if(tooFew){
+    startBtn.textContent = "Need ≥ 2 entries to start";
+  } else if(!stagesResult.valid){
+    startBtn.textContent = "Fix group stage settings";
+  } else {
+    const stages = BF.settings.groupStages.length;
+    const stageWord = stages === 0 ? "" : `${stages} group stage${stages === 1 ? "" : "s"} → `;
+    startBtn.textContent = `Start ${stageWord}${BF.settings.mode === 'double' ? 'Double' : 'Single'}-Elim Bracket`;
+  }
+}
+
+// How many entries land in each group when distributing `n` entries via
+// bfDistributeIntoGroups across `g` groups. Mirrors that snake distribution:
+// the first (n % g) groups end up one entry larger than the rest.
+function bfComputeGroupSizes(n, g){
+  if(g <= 0) return [];
+  const base = Math.floor(n / g);
+  const r = n % g;
+  const out = [];
+  for(let i = 0; i < g; i++) out.push(base + (i < r ? 1 : 0));
+  return out;
+}
+
+// Render the Group Stages list inside the setup screen.
+// Walks the configured stages, computing the input entry count for each from
+// the previous stage's output, group sizes, and per-stage warnings. Returns
+// { valid, bracketEntries } for the parent renderer.
+function bfRenderStagesSection(totalEntries){
+  const list = $("bf-stages-list");
+  list.innerHTML = "";
+  const stages = BF.settings.groupStages || [];
+
+  let runningN = totalEntries;
+  let allValid = true;
+
+  for(let s = 0; s < stages.length; s++){
+    const cfg = stages[s];
+    const inputN = runningN;
+    const numGroups = Math.max(1, cfg.numGroups | 0);
+    const qualifyPerGroup = Math.max(1, cfg.qualifyPerGroup | 0);
+    const sizes = bfComputeGroupSizes(inputN, numGroups);
+    const minSize = sizes.length ? sizes[sizes.length - 1] : 0;
+    const maxSize = sizes.length ? sizes[0] : 0;
+    const output = sizes.reduce((acc, sz) => acc + Math.min(sz, qualifyPerGroup), 0);
+
+    let warn = null;
+    if(inputN < numGroups){
+      warn = `Only ${inputN} entr${inputN === 1 ? "y" : "ies"} for ${numGroups} groups — need at least 1 per group.`;
+    } else if(qualifyPerGroup > minSize){
+      warn = `Top ${qualifyPerGroup} can't qualify — smallest group has only ${minSize}.`;
+    } else if(output < 2 && s < stages.length - 1){
+      warn = `Only ${output} qualifier${output === 1 ? "" : "s"} — need ≥ 2 for the next stage.`;
+    }
+    if(warn) allValid = false;
+
+    const sizeStr = minSize === maxSize ? `groups of ${minSize}`
+                                        : `groups of ${minSize}–${maxSize}`;
+    const info = `${inputN} entries → ${numGroups} ${sizeStr} · top ${qualifyPerGroup} per group · ${output} qualify`;
+
+    const row = document.createElement('div');
+    row.className = 'bf-stage-row';
+    row.innerHTML =
+      `<div class="bf-stage-head">`
+    +   `<div class="bf-stage-num">Stage ${s + 1}</div>`
+    +   `<button class="bf-stage-remove" type="button" data-stage="${s}" title="Remove stage">✕</button>`
+    + `</div>`
+    + `<div class="bf-stage-fields">`
+    +   `<div class="bf-stage-field">`
+    +     `<label>Groups</label>`
+    +     `<div class="bf-step-row">`
+    +       `<button class="bf-step" type="button" data-stage="${s}" data-field="numGroups" data-delta="-1">−</button>`
+    +       `<span class="bf-step-val">${numGroups}</span>`
+    +       `<button class="bf-step" type="button" data-stage="${s}" data-field="numGroups" data-delta="1">+</button>`
+    +     `</div>`
+    +   `</div>`
+    +   `<div class="bf-stage-field">`
+    +     `<label>Top advance</label>`
+    +     `<div class="bf-step-row">`
+    +       `<button class="bf-step" type="button" data-stage="${s}" data-field="qualifyPerGroup" data-delta="-1">−</button>`
+    +       `<span class="bf-step-val">${qualifyPerGroup}</span>`
+    +       `<button class="bf-step" type="button" data-stage="${s}" data-field="qualifyPerGroup" data-delta="1">+</button>`
+    +     `</div>`
+    +   `</div>`
+    + `</div>`
+    + `<div class="bf-stage-info">${escapeHtml(info)}</div>`
+    + (warn ? `<div class="bf-stage-warn">${escapeHtml(warn)}</div>` : "");
+    list.appendChild(row);
+
+    runningN = output;
+  }
+
+  const bracketEntries = runningN;
+  const summary = stages.length === 0
+    ? `(bracket: ${totalEntries} entries)`
+    : `(→ bracket: ${bracketEntries} entries)`;
+  $("bf-stages-summary").textContent = summary;
+
+  return { valid: allValid && bracketEntries >= 2, bracketEntries };
 }
 
 function bfStartPlay(){
@@ -3802,6 +4446,7 @@ $("btn-bracket").addEventListener("click", bfOpenOverlay);
 $("bf-close").addEventListener("click", () =>
   $("bf-overlay").classList.remove("open"));
 $("bf-restart").addEventListener("click", bfShowSetup);
+$("bf-undo").addEventListener("click", bfUndo);
 $("bf-zoom-in").addEventListener("click", () => bfCenterZoomBtn(1.25));
 $("bf-zoom-out").addEventListener("click", () => bfCenterZoomBtn(1 / 1.25));
 $("bf-fit").addEventListener("click", bfFit);
@@ -3810,6 +4455,38 @@ $("bf-mode-seg").querySelectorAll(".bf-seg-btn").forEach(btn => {
     BF.settings.mode = btn.dataset.mode;
     bfRenderSetup();
   });
+});
+$("bf-seed-seg").querySelectorAll(".bf-seg-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    BF.settings.seeding = btn.dataset.seeding;
+    bfRenderSetup();
+  });
+});
+$("bf-add-stage").addEventListener("click", () => {
+  if(!Array.isArray(BF.settings.groupStages)) BF.settings.groupStages = [];
+  // Sensible defaults: 4 groups, top 2 advance.
+  BF.settings.groupStages.push({ numGroups: 4, qualifyPerGroup: 2 });
+  bfRenderSetup();
+});
+// Event delegation for stepper / remove buttons inside each stage row.
+$("bf-stages-list").addEventListener("click", e => {
+  const removeBtn = e.target.closest(".bf-stage-remove");
+  if(removeBtn){
+    const s = +removeBtn.dataset.stage;
+    BF.settings.groupStages.splice(s, 1);
+    bfRenderSetup();
+    return;
+  }
+  const stepBtn = e.target.closest(".bf-step");
+  if(stepBtn){
+    const s = +stepBtn.dataset.stage;
+    const field = stepBtn.dataset.field;
+    const delta = +stepBtn.dataset.delta;
+    const cfg = BF.settings.groupStages[s];
+    if(!cfg) return;
+    cfg[field] = Math.max(1, (cfg[field] | 0) + delta);
+    bfRenderSetup();
+  }
 });
 $("bf-start").addEventListener("click", () => {
   if($("bf-start").disabled) return;
