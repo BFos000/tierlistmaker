@@ -895,6 +895,292 @@
     font-size: 12px;
     margin-top: 8px;
   }
+
+  /* ===== Group Mode ===== */
+  .grp-overlay {
+    position: fixed; inset: 0;
+    background: #0b0b0b;
+    z-index: 300;
+    display: none;
+    flex-direction: column;
+  }
+  .grp-overlay.open { display: flex; }
+  .grp-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(var(--safe-top) + 10px) 12px 10px 12px;
+    background: #161616;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .grp-header h2 { margin: 0; font-size: 16px; }
+  .grp-header .grp-count { color: var(--muted); font-size: 12px; flex: 1; }
+  .grp-perrow {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--muted); font-size: 12px;
+  }
+  .grp-perrow button {
+    width: 26px; height: 26px; padding: 0;
+    font-size: 15px; line-height: 1;
+  }
+  .grp-perrow .grp-perrow-val {
+    min-width: 18px; text-align: center;
+    color: var(--fg); font-variant-numeric: tabular-nums;
+  }
+  .grp-body { flex: 1; display: flex; min-height: 0; }
+  .grp-left, .grp-right {
+    width: 50%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .grp-left {
+    border-right: 1px solid var(--border);
+    background: #101010;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;   /* the inner list scrolls instead */
+  }
+  .grp-search {
+    position: relative;
+    flex-shrink: 0;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    background: #141414;
+  }
+  .grp-search input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 30px 8px 10px;
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .grp-search-clear {
+    position: absolute;
+    right: 14px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; padding: 0;
+    border: none; background: transparent; color: var(--muted);
+    font-size: 14px; line-height: 1;
+    display: none;
+  }
+  .grp-search-clear.show { display: block; }
+  .grp-left-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px;
+  }
+  .grp-right {
+    padding: 12px;
+    background:
+      radial-gradient(circle at 30% 20%, #191919 0, transparent 60%),
+      #0d0d0d;
+  }
+
+  /* Left: recreation of the tier list */
+  .grp-tier-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+    align-items: stretch;
+  }
+  .grp-tier-label {
+    flex-shrink: 0;
+    width: 42px;
+    min-height: 42px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px;
+    text-align: center;
+    border-radius: 4px;
+    overflow: hidden;
+    word-break: break-word;
+    padding: 2px;
+  }
+  .grp-tier-items {
+    flex: 1;
+    display: flex; flex-wrap: wrap;
+    gap: 4px;
+    align-content: flex-start;
+    padding: 3px;
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 4px;
+    min-width: 0;
+  }
+  .grp-thumb {
+    width: 48px; height: 48px;
+    border-radius: 4px;
+    background-size: cover; background-position: center;
+    background-color: #111;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
+    opacity: 0.6;
+    transition: opacity 0.1s, border-color 0.1s;
+  }
+  .grp-thumb.included {
+    opacity: 1;
+    border-color: var(--accent);
+  }
+  .grp-thumb.included::after {
+    content: "✓";
+    position: absolute;
+    top: -4px; right: -4px;
+    width: 16px; height: 16px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px; font-weight: 700;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .grp-empty-hint { color: #555; font-size: 12px; padding: 20px 8px; text-align: center; }
+
+  /* Right: included panel */
+  .grp-panel {
+    display: grid;
+    gap: 14px;
+  }
+  .grp-panel-hint {
+    color: #666; font-size: 13px; text-align: center;
+    padding: 40px 12px;
+    line-height: 1.5;
+  }
+  .grp-cell {
+    display: flex; flex-direction: column;
+    /* Colored frame: the cell background is the tier color (set inline);
+       the padding forms the border around the picture, and the strip below
+       the picture becomes the background for the tier label. */
+    padding: 9px;
+    border-radius: 8px;
+    gap: 6px;
+    touch-action: pan-y;
+    overflow: hidden;
+  }
+  .grp-cell.dragging { opacity: 0.35; }
+  .grp-cell.grp-drop { box-shadow: 0 0 0 3px var(--accent); }
+  .grp-cell-pic {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background-size: cover; background-position: center;
+    background-color: #111;
+    border-radius: 3px;
+  }
+  .grp-cell-label {
+    font-size: 15px;
+    text-align: left;
+    font-weight: 800;
+    padding: 0 1px 1px;
+    white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+    /* color set inline to the tier's font color */
+  }
+
+  /* Group image preview modal — sits above the group overlay (z 300). */
+  #modal-grp-preview { z-index: 400; }
+  #grp-preview-wrap {
+    display: block;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #0a0a0a;
+    border-radius: 8px;
+    padding: 4px;
+    text-align: center;
+  }
+  #grp-preview-canvas {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+    background: #1c1c1c;
+    border-radius: 6px;
+  }
+
+  /* ===== Multi-group additions ===== */
+  /* Items | Layout view toggle in the header */
+  .grp-viewtoggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .grp-vbtn { border: none; border-radius: 0; background: #1c1c1c; color: var(--muted); padding: 6px 12px; font-size: 13px; }
+  .grp-vbtn.active { background: var(--accent); color: #fff; }
+  /* In layout mode the item-picker column is hidden; the layout gets the full width */
+  .grp-overlay.layout-mode .grp-left { display: none; }
+  .grp-overlay.layout-mode .grp-right { width: 100%; }
+
+  /* Group tabs */
+  .grp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .grp-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    background: #191919; border: 1px solid var(--border); color: var(--fg);
+    font-size: 13px; cursor: pointer;
+  }
+  .grp-tab.active { border-color: var(--accent); background: #23262b; }
+  .grp-tab .grp-tab-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .grp-tab .grp-tab-n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .grp-tab-add { padding: 5px 12px; border-radius: 999px; }
+
+  /* Active-group editor bar */
+  .grp-active-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px; margin-bottom: 10px;
+    background: #141414; border: 1px solid var(--border); border-radius: 8px;
+  }
+  .grp-active-bar input[type="text"] {
+    flex: 1; min-width: 110px;
+    padding: 6px 8px; background: var(--bg2); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  }
+  .grp-active-bar input[type="color"] {
+    width: 32px; height: 32px; padding: 0; border: 1px solid var(--border);
+    border-radius: 6px; background: none; flex-shrink: 0;
+  }
+
+  /* "used by N other groups" badge on left-panel thumbs */
+  .grp-thumb-badge {
+    position: absolute; bottom: -4px; left: -4px;
+    min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box;
+    background: #555; color: #fff; font-size: 10px; font-weight: 700;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  /* Layout editor */
+  .grp-layout-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .grp-layout-toolbar .grp-hint { color: var(--muted); font-size: 12px; flex: 1; min-width: 180px; line-height: 1.4; }
+  .grp-row {
+    border: 1px solid var(--border); border-radius: 8px;
+    background: #131313; margin-bottom: 10px; overflow: hidden;
+  }
+  .grp-row-head {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 7px 9px; background: #191919; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--muted);
+  }
+  .grp-row-head .grp-row-title { color: var(--fg); font-weight: 700; }
+  .grp-row-head button { width: 26px; height: 26px; padding: 0; font-size: 14px; line-height: 1; }
+  .grp-row-head button:disabled { opacity: 0.35; }
+  .grp-row-head .grp-addslot { width: auto; padding: 0 10px; }
+  .grp-row-head .grp-spacer { flex: 1; }
+  .grp-slots { display: flex; align-items: stretch; gap: 4px; padding: 8px; min-height: 60px; flex-wrap: wrap; }
+  .grp-slot {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 7px; border-radius: 6px; min-width: 92px;
+    background: #0c0c0c; border: 1px dashed #2a2a2a;
+  }
+  .grp-slot.filled { border-style: solid; }
+  .grp-slot select {
+    width: 100%; box-sizing: border-box; padding: 4px 6px;
+    background: var(--bg2); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 5px; font-size: 13px;
+  }
+  .grp-slot-ctrls { display: flex; align-items: center; gap: 3px; justify-content: center; flex-wrap: wrap; }
+  .grp-slot-ctrls button { width: 24px; height: 24px; padding: 0; font-size: 13px; line-height: 1; }
+  .grp-slot-ctrls button:disabled { opacity: 0.35; }
+  .grp-slot-ctrls .grp-slot-span { min-width: 34px; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .grp-slot-filler { align-self: stretch; min-width: 40px; border: 1px dashed #242424; border-radius: 6px; opacity: 0.5; }
 </style>
 </head>
 <body>
@@ -906,6 +1192,7 @@
   <button id="btn-labels">Labels: ON</button>
   <button id="btn-export-text">Export Text</button>
   <button id="btn-bracket">⚔ Bracket</button>
+  <button id="btn-group">▦ Groups</button>
   <button id="btn-save">Save</button>
   <button id="btn-load-trigger">Load</button>
   <input type="file" id="btn-load" class="hidden-input" accept=".json,application/json">
@@ -1129,6 +1416,64 @@
     </div>
   </div>
   <div class="bf-prompt" id="bf-prompt"></div>
+</div>
+
+<!-- Group mode overlay -->
+<div class="grp-overlay" id="grp-overlay">
+  <div class="grp-header">
+    <h2>▦ Groups</h2>
+    <span class="grp-count" id="grp-count"></span>
+    <span class="grp-viewtoggle">
+      <button id="grp-view-items" class="grp-vbtn active" type="button">Items</button>
+      <button id="grp-view-layout" class="grp-vbtn" type="button">Layout</button>
+    </span>
+    <button id="grp-render" class="primary">Preview Image</button>
+    <button id="grp-close">✕</button>
+  </div>
+  <div class="grp-body">
+    <div class="grp-left" id="grp-left">
+      <div class="grp-search">
+        <input type="text" id="grp-search-input" placeholder="Search entries…" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="grp-search-clear" class="grp-search-clear" title="Clear search">✕</button>
+      </div>
+      <div class="grp-left-list" id="grp-left-list"></div>
+    </div>
+    <div class="grp-right" id="grp-right">
+      <!-- Items view: pick which items belong to the active group -->
+      <div id="grp-items-view">
+        <div class="grp-tabs" id="grp-tabs"></div>
+        <div class="grp-active-bar" id="grp-active-bar"></div>
+        <div class="grp-panel" id="grp-panel"></div>
+      </div>
+      <!-- Layout view: arrange groups into rows of fractional-width slots -->
+      <div id="grp-layout-view" style="display:none;">
+        <div class="grp-layout-toolbar">
+          <button id="grp-add-row" type="button">+ Add Row</button>
+          <span class="grp-hint">Rows stack top-to-bottom. Set each row's column count, drop a group into a slot, and choose how many columns it spans. Empty slots and leftover columns become gaps.</span>
+        </div>
+        <div id="grp-rows"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Group image preview modal -->
+<div class="modal-backdrop" id="modal-grp-preview">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Group Image</h2>
+      <button onclick="closeModal('modal-grp-preview')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="grp-preview-wrap">
+        <canvas id="grp-preview-canvas"></canvas>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-grp-preview')">Close</button>
+      <button id="grp-preview-save" class="primary">Save Image</button>
+    </div>
+  </div>
 </div>
 
 <!-- Edit label notice (shown inside add modal for legacy items) -->
@@ -3342,6 +3687,12 @@ function bfBuild(){
 
 // Build the WB (+ LB / GF / GFR for double-elim) from a list of entries.
 // Sets BF.entries to `entries` first so the existing `seed`-kind sources resolve.
+//
+// Each match gets a `phase` number reflecting the standard double-elim play
+// order, used by bfResolve when choosing BF.current. Lower phase = play first.
+// The interleaving (WB R1 → LB R1 → WB R2 → LB R2 → …) ensures the brackets
+// stay synchronized: a new WB round can't start while LB has pending matches
+// from earlier rounds.
 function bfBuildBracket(entries){
   BF.entries = entries;
   if(entries.length < 2) return;
@@ -3355,6 +3706,7 @@ function bfBuildBracket(entries){
   for(let i = 0; i < size; i += 2){
     const m = bfMakeMatch({
       bracket: 'W', round: 0, idx: wb1.length,
+      phase: 1,                     // WB R1
       aSrc: { kind: 'seed', s: order[i] },
       bSrc: { kind: 'seed', s: order[i + 1] },
     });
@@ -3363,10 +3715,12 @@ function bfBuildBracket(entries){
   BF.wb.push(wb1);
   while(BF.wb[BF.wb.length - 1].length > 1){
     const prev = BF.wb[BF.wb.length - 1];
+    const r = BF.wb.length;         // 0-based round index of the round we're building
     const next = [];
     for(let i = 0; i < prev.length; i += 2){
       const m = bfMakeMatch({
-        bracket: 'W', round: BF.wb.length, idx: next.length,
+        bracket: 'W', round: r, idx: next.length,
+        phase: 2 * r + 1,           // WB R(r+1)
         aSrc: { kind: 'win', id: prev[i] },
         bSrc: { kind: 'win', id: prev[i + 1] },
       });
@@ -3382,11 +3736,12 @@ function bfBuildBracket(entries){
   // -------- Losers Bracket --------
   let lbFinalId = null;
   if(BF.k >= 2){
-    // LBR1: pairs of WBR1 losers.
+    // LBR1 (pairs of WBR1 losers) gets phase 2 — runs right after WB R1.
     const lb1 = [];
     for(let i = 0; i < wb1.length; i += 2){
       const m = bfMakeMatch({
         bracket: 'L', round: 0, idx: lb1.length,
+        phase: 2,
         aSrc: { kind: 'lose', id: wb1[i] },
         bSrc: { kind: 'lose', id: wb1[i + 1] },
       });
@@ -3395,13 +3750,17 @@ function bfBuildBracket(entries){
     BF.lb.push(lb1);
     // For each later WB round, add a "major" LB round (receiving WB drops)
     // then a "minor" LB round between LB players (skipped if only 1 match).
+    // The whole block (major + minor) shares a single phase = 2i+2, slotting
+    // between WB R(i+1) (phase 2i+1) and WB R(i+2) (phase 2i+3).
     for(let i = 1; i < BF.k; i++){
+      const lbBlockPhase = 2 * i + 2;
       const wbDrops = BF.wb[i].slice().reverse(); // spread top seeds
       const lbPrev = BF.lb[BF.lb.length - 1];
       const major = [];
       for(let j = 0; j < lbPrev.length; j++){
         const m = bfMakeMatch({
           bracket: 'L', round: BF.lb.length, idx: major.length,
+          phase: lbBlockPhase,
           aSrc: { kind: 'win',  id: lbPrev[j] },
           bSrc: { kind: 'lose', id: wbDrops[j] },
         });
@@ -3413,6 +3772,7 @@ function bfBuildBracket(entries){
         for(let j = 0; j < major.length; j += 2){
           const m = bfMakeMatch({
             bracket: 'L', round: BF.lb.length, idx: minor.length,
+            phase: lbBlockPhase,
             aSrc: { kind: 'win', id: major[j] },
             bSrc: { kind: 'win', id: major[j + 1] },
           });
@@ -3427,6 +3787,7 @@ function bfBuildBracket(entries){
   // -------- Grand Final + Bracket Reset (gated) --------
   const gf = bfMakeMatch({
     bracket: 'GF', round: 0, idx: 0,
+    phase: 2 * BF.k + 1,
     aSrc: { kind: 'win', id: wbFinalId },
     bSrc: (BF.k === 1) ? { kind: 'lose', id: wbFinalId }
                        : { kind: 'win',  id: lbFinalId },
@@ -3434,6 +3795,7 @@ function bfBuildBracket(entries){
   BF.gfId = gf.id;
   const gfr = bfMakeMatch({
     bracket: 'GFR', round: 0, idx: 0,
+    phase: 2 * BF.k + 2,
     aSrc: { kind: 'lose', id: gf.id },
     bSrc: { kind: 'win',  id: gf.id },
     gated: true,
@@ -3479,6 +3841,7 @@ function bfBuildGroupStage(stageIdx, entries){
           groupIdx: g,
           round: 0,
           idx: matchIds.length,
+          phase: 0,             // group matches always play before any bracket match
           aSrc: { kind: 'set' },
           bSrc: { kind: 'set' },
         });
@@ -3583,17 +3946,23 @@ function bfResolve(){
     }
   }
 
-  // Progress / current pointer. Walk matches in id order so group matches
-  // come before the bracket and are surfaced first.
+  // Progress / current pointer. Pick the lowest-phase pickable match, which
+  // gives the standard double-elim play order: WB R1 → LB R1 → WB R2 → LB R2
+  // → … → WB Final → LB Final → GF → [GFR]. Within a single phase, the first
+  // match in build order wins (top of bracket first).
   BF.current = null;
   let decidable = 0, decided = 0;
+  let bestPhase = Infinity;
   for(const m of BF.matches){
     if(m.skipped || m.gated) continue;
     if(m.byeWin) continue;
-    if(m.a.uid && m.b.uid){
-      decidable++;
-      if(m.winner) decided++;
-      else if(BF.current == null) BF.current = m.id;
+    if(!(m.a.uid && m.b.uid)) continue;
+    decidable++;
+    if(m.winner){ decided++; continue; }
+    const p = m.phase != null ? m.phase : 0;
+    if(p < bestPhase){
+      bestPhase = p;
+      BF.current = m.id;
     }
   }
   BF.decidable = decidable;
@@ -4493,6 +4862,769 @@ $("bf-start").addEventListener("click", () => {
   bfStartPlay();
 });
 bfSetupGestures();
+
+// ===================================================================
+// ----- Group Mode -----
+// Build multiple named groups (allies, enemies, factions…), each a set of
+// entries picked from the tier list, then arrange the groups into a layout
+// of rows subdivided into fractional-width slots and render it to an image.
+// Ephemeral: never touches state.* or persistence.
+// ===================================================================
+const GRP_PALETTE = ['#e6394a','#3b7de6','#2fae5f','#e6a13b','#9b59b6','#1abc9c','#e67e22','#ec6ea0'];
+let grpIdSeq = 1;
+function grpNewId(){ return 'grp' + (grpIdSeq++); }
+
+const GROUP = {
+  groups: [],      // [{ id, name, color, included:[uid], perRow }]
+  activeId: null,  // id of the group currently edited in the Items view
+  rows: [],        // layout: [{ cols, slots:[{ span, groupId|null }] }]
+  search: "",      // left-panel name filter (non-destructive; display only)
+  view: "items",   // "items" | "layout"
+};
+
+function grpById(id){ return GROUP.groups.find(g => g.id === id) || null; }
+function grpActive(){ return grpById(GROUP.activeId); }
+
+// New group → placed in the layout as its own full-width row → made active.
+function grpAddGroup(){
+  const n = GROUP.groups.length;
+  const g = {
+    id: grpNewId(),
+    name: `Group ${n + 1}`,
+    color: GRP_PALETTE[n % GRP_PALETTE.length],
+    included: [],
+    perRow: 4,
+  };
+  GROUP.groups.push(g);
+  GROUP.rows.push({ cols: 1, slots: [{ span: 1, groupId: g.id }] });
+  GROUP.activeId = g.id;
+  return g;
+}
+
+// Remove a group from the list and from every layout slot (slots holding it
+// become empty). Rows that end up with no slots at all are dropped.
+function grpDeleteGroup(id){
+  GROUP.groups = GROUP.groups.filter(g => g.id !== id);
+  for(const row of GROUP.rows){
+    for(const slot of row.slots){ if(slot.groupId === id) slot.groupId = null; }
+  }
+  GROUP.rows = GROUP.rows.filter(row => row.slots.length > 0);
+  if(GROUP.activeId === id){
+    GROUP.activeId = GROUP.groups.length ? GROUP.groups[0].id : null;
+  }
+}
+
+// Move item `from`→`to` within an array (used by row/slot reordering).
+function grpMove(arr, from, to){
+  if(to < 0 || to >= arr.length) return;
+  const [x] = arr.splice(from, 1);
+  arr.splice(to, 0, x);
+}
+
+// Which tier (if any) an item currently sits in. Returns { index, name, color }
+// where index is the 0-based tier rank, or null for pool / unranked items.
+function grpTierOf(uidv){
+  for(let i = 0; i < state.tiers.length; i++){
+    const t = state.tiers[i];
+    if((state.tier_items[t.name] || []).includes(uidv)){
+      const color = normalizeHex(t.color) || '#888888';
+      const fontColor = (t.advanced && t.font_color) ? t.font_color : fgFor(color);
+      return { index: i, name: t.name, color, fontColor };
+    }
+  }
+  return null;
+}
+// Fallback tier color/font for pool (unranked) entries.
+const GRP_POOL_COLOR = '#888888';
+function grpFontOf(uidv){
+  const t = grpTierOf(uidv);
+  return t ? t.fontColor : fgFor(GRP_POOL_COLOR);
+}
+function grpColorOf(uidv){
+  const t = grpTierOf(uidv);
+  return t ? t.color : GRP_POOL_COLOR;
+}
+
+// Label shown under a panel entry, e.g. "(0 - S)" or "Pool".
+function grpRankLabel(uidv){
+  const t = grpTierOf(uidv);
+  return t ? `(${t.index} - ${t.name})` : 'Pool';
+}
+
+function grpOpen(){
+  $("grp-overlay").classList.add("open");
+  // Drop any included uids that no longer exist, across every group.
+  for(const g of GROUP.groups) g.included = g.included.filter(u => state.items[u]);
+  if(!GROUP.groups.length) grpAddGroup();
+  if(!grpActive()) GROUP.activeId = GROUP.groups[0].id;
+  GROUP.search = "";
+  $("grp-search-input").value = "";
+  $("grp-search-clear").classList.remove("show");
+  grpSetView("items");
+  grpRenderAll();
+}
+function grpClose(){ $("grp-overlay").classList.remove("open"); }
+
+// Switch between the Items editor and the Layout composer.
+function grpSetView(view){
+  GROUP.view = view;
+  const layout = view === "layout";
+  $("grp-overlay").classList.toggle("layout-mode", layout);
+  $("grp-items-view").style.display = layout ? "none" : "block";
+  $("grp-layout-view").style.display = layout ? "block" : "none";
+  $("grp-view-items").classList.toggle("active", !layout);
+  $("grp-view-layout").classList.toggle("active", layout);
+  if(layout) grpRenderLayout();
+}
+
+function grpRenderAll(){
+  grpRenderLeft();
+  grpRenderTabs();
+  grpRenderActiveBar();
+  grpRenderPanel();
+  if(GROUP.view === "layout") grpRenderLayout();
+  grpUpdateCount();
+}
+
+function grpUpdateCount(){
+  const nItems = GROUP.groups.reduce((s, g) => s + g.included.length, 0);
+  const ng = GROUP.groups.length;
+  $("grp-count").textContent = `${ng} group${ng === 1 ? "" : "s"} · ${nItems} item${nItems === 1 ? "" : "s"}`;
+  $("grp-render").disabled = GROUP.groups.every(g => g.included.length === 0);
+}
+
+// Toggle an item in/out of the *active* group.
+function grpToggle(uidv){
+  const g = grpActive();
+  if(!g) return;
+  const i = g.included.indexOf(uidv);
+  if(i >= 0) g.included.splice(i, 1);
+  else g.included.push(uidv);
+  grpRenderLeft();
+  grpRenderTabs();
+  grpRenderPanel();
+  grpUpdateCount();
+}
+
+// Group tabs: one chip per group (color dot + name + count) + an add button.
+function grpRenderTabs(){
+  const root = $("grp-tabs");
+  root.innerHTML = "";
+  GROUP.groups.forEach(g => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "grp-tab" + (g.id === GROUP.activeId ? " active" : "");
+    const dot = document.createElement("span");
+    dot.className = "grp-tab-dot";
+    dot.style.background = g.color;
+    const name = document.createElement("span");
+    name.textContent = g.name || "Group";
+    const n = document.createElement("span");
+    n.className = "grp-tab-n";
+    n.textContent = g.included.length;
+    chip.appendChild(dot); chip.appendChild(name); chip.appendChild(n);
+    chip.addEventListener("click", () => { GROUP.activeId = g.id; grpRenderAll(); });
+    root.appendChild(chip);
+  });
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "grp-tab-add";
+  add.textContent = "+ Group";
+  add.addEventListener("click", () => { grpAddGroup(); grpRenderAll(); });
+  root.appendChild(add);
+}
+
+// Editor bar for the active group: color, name, per-row, clear, delete.
+function grpRenderActiveBar(){
+  const bar = $("grp-active-bar");
+  bar.innerHTML = "";
+  const g = grpActive();
+  if(!g){ bar.style.display = "none"; return; }
+  bar.style.display = "flex";
+
+  const color = document.createElement("input");
+  color.type = "color";
+  color.value = normalizeHex(g.color) || "#888888";
+  color.title = "Group color (header bar)";
+  color.addEventListener("input", () => { g.color = color.value; grpRenderTabs(); });
+
+  const name = document.createElement("input");
+  name.type = "text";
+  name.value = g.name;
+  name.placeholder = "Group name";
+  name.addEventListener("input", () => { g.name = name.value; grpRenderTabs(); });
+
+  const perrow = document.createElement("span");
+  perrow.className = "grp-perrow";
+  const prLabel = document.createElement("span");
+  prLabel.textContent = "Per row";
+  const dec = document.createElement("button"); dec.textContent = "−"; dec.title = "Fewer per row";
+  const val = document.createElement("span"); val.className = "grp-perrow-val"; val.textContent = g.perRow;
+  const inc = document.createElement("button"); inc.textContent = "＋"; inc.title = "More per row";
+  dec.addEventListener("click", () => { g.perRow = Math.max(1, g.perRow - 1); grpRenderActiveBar(); grpRenderPanel(); });
+  inc.addEventListener("click", () => { g.perRow = Math.min(12, g.perRow + 1); grpRenderActiveBar(); grpRenderPanel(); });
+  perrow.appendChild(prLabel); perrow.appendChild(dec); perrow.appendChild(val); perrow.appendChild(inc);
+
+  const clear = document.createElement("button");
+  clear.textContent = "Clear";
+  clear.title = "Remove all items from this group";
+  clear.addEventListener("click", () => { if(!g.included.length) return; g.included = []; grpRenderAll(); });
+
+  const del = document.createElement("button");
+  del.textContent = "Delete group";
+  del.className = "danger";
+  del.addEventListener("click", () => {
+    grpDeleteGroup(g.id);
+    if(!GROUP.groups.length) grpAddGroup();
+    grpRenderAll();
+  });
+
+  bar.appendChild(color);
+  bar.appendChild(name);
+  bar.appendChild(perrow);
+  bar.appendChild(clear);
+  bar.appendChild(del);
+}
+
+// Left half: a compact recreation of the tier list + pool. Tap toggles inclusion.
+// The search box (a non-destructive name filter) lives outside this rebuilt list.
+function grpRenderLeft(){
+  const root = $("grp-left-list");
+  root.innerHTML = "";
+
+  const active = grpActive();
+  const incl = active ? active.included : [];
+  const q = (GROUP.search || "").trim().toLowerCase();
+  const matches = id => {
+    if(!q) return true;
+    const it = state.items[id];
+    return it && (it.text || "").toLowerCase().includes(q);
+  };
+
+  const rows = state.tiers.map(t => ({
+    label: t.name, tier: t,
+    ids: (state.tier_items[t.name] || []).filter(id => state.items[id] && matches(id)),
+  }));
+  const poolIds = state.pool.filter(id => state.items[id] && matches(id));
+  if(poolIds.length) rows.push({ label: "POOL", tier: null, ids: poolIds });
+
+  const anyItems = state.tiers.some(t => (state.tier_items[t.name] || []).some(id => state.items[id]))
+                || state.pool.some(id => state.items[id]);
+  if(!anyItems){
+    root.innerHTML = `<div class="grp-empty-hint">No items yet — add items on the main board first.</div>`;
+    return;
+  }
+  if(!rows.some(r => r.ids.length)){
+    root.innerHTML = `<div class="grp-empty-hint">No entries match “${escapeHtml(GROUP.search.trim())}”.</div>`;
+    return;
+  }
+
+  for(const r of rows){
+    if(!r.ids.length) continue;
+    const row = document.createElement("div");
+    row.className = "grp-tier-row";
+
+    const label = document.createElement("div");
+    label.className = "grp-tier-label";
+    label.textContent = r.label;
+    if(r.tier){
+      applyTierStyle(label, r.tier);
+    } else {
+      label.style.background = "#333";
+      label.style.color = "#ccc";
+    }
+
+    const list = document.createElement("div");
+    list.className = "grp-tier-items";
+    for(const id of r.ids){
+      const it = state.items[id];
+      const el = document.createElement("div");
+      el.className = "grp-thumb" + (incl.includes(id) ? " included" : "");
+      el.style.backgroundImage = `url("${dataUrl(displayB64(it))}")`;
+      // Badge: how many *other* groups also include this item.
+      const otherCount = GROUP.groups.filter(g => g.id !== GROUP.activeId && g.included.includes(id)).length;
+      if(otherCount){
+        const badge = document.createElement("div");
+        badge.className = "grp-thumb-badge";
+        badge.textContent = otherCount;
+        badge.title = `Also in ${otherCount} other group${otherCount === 1 ? "" : "s"}`;
+        el.appendChild(badge);
+      }
+      if(it.text) el.title = it.text;
+      el.addEventListener("click", () => grpToggle(id));
+      list.appendChild(el);
+    }
+
+    row.appendChild(label);
+    row.appendChild(list);
+    root.appendChild(row);
+  }
+}
+
+// The active group's entries, rearrangeable by long-press drag.
+function grpRenderPanel(){
+  const panel = $("grp-panel");
+  const g = grpActive();
+
+  if(!g || g.included.length === 0){
+    panel.style.display = "block";
+    const who = g ? `<b>${escapeHtml(g.name || "this group")}</b>` : "this group";
+    panel.innerHTML = `<div class="grp-panel-hint">Tap entries on the left to add them to ${who}.<br>Long-press an entry to drag &amp; reorder it.</div>`;
+    return;
+  }
+
+  panel.style.display = "grid";
+  panel.style.gridTemplateColumns = `repeat(${g.perRow}, 1fr)`;
+  panel.innerHTML = "";
+  g.included.forEach((uidv, idx) => {
+    const it = state.items[uidv];
+    if(!it) return;
+    const t = grpTierOf(uidv);
+    const color = t ? t.color : GRP_POOL_COLOR;
+    const fontColor = t ? t.fontColor : fgFor(GRP_POOL_COLOR);
+
+    const cell = document.createElement("div");
+    cell.className = "grp-cell";
+    cell.dataset.idx = idx;
+    cell.style.background = color;
+
+    const pic = document.createElement("div");
+    pic.className = "grp-cell-pic";
+    pic.style.backgroundImage = `url("${dataUrl(displayB64(it))}")`;
+
+    const lbl = document.createElement("div");
+    lbl.className = "grp-cell-label";
+    lbl.style.color = fontColor;
+    lbl.textContent = grpRankLabel(uidv);
+    if(it.text) lbl.title = it.text;
+
+    cell.appendChild(pic);
+    cell.appendChild(lbl);
+    cell.addEventListener("pointerdown", grpCellPointerDown);
+    panel.appendChild(cell);
+  });
+}
+
+// ----- Drag-to-swap in the included panel -----
+const grpDrag = {
+  active: false, fromIdx: null, pointerId: null,
+  startX: 0, startY: 0, fromEl: null, pressTimer: null,
+};
+
+function grpCellPointerDown(e){
+  if(e.pointerType === "mouse" && e.button !== 0) return;
+  const cell = e.currentTarget;
+  grpDrag.fromIdx = +cell.dataset.idx;
+  grpDrag.fromEl = cell;
+  grpDrag.pointerId = e.pointerId;
+  grpDrag.startX = e.clientX;
+  grpDrag.startY = e.clientY;
+  grpDrag.active = false;
+
+  clearTimeout(grpDrag.pressTimer);
+  grpDrag.pressTimer = setTimeout(() => {
+    if(grpDrag.pointerId !== null) grpBeginDrag(grpDrag.startX, grpDrag.startY);
+  }, 320);
+
+  cell.addEventListener("pointermove", grpCellPointerMove);
+  cell.addEventListener("pointerup", grpCellPointerUp);
+  cell.addEventListener("pointercancel", grpCellPointerCancel);
+}
+
+function grpBeginDrag(x, y){
+  grpDrag.active = true;
+  const g = grpActive();
+  const uidv = g ? g.included[grpDrag.fromIdx] : null;
+  const it = state.items[uidv];
+  if(!it){ grpDrag.active = false; return; }
+  if(navigator.vibrate) navigator.vibrate(20);
+  const ghost = $("drag-ghost");
+  ghost.style.display = "block";
+  ghost.style.width = "90px";
+  ghost.style.height = "90px";
+  ghost.style.backgroundImage = `url("${dataUrl(displayB64(it))}")`;
+  updateGhost(x, y);
+  if(grpDrag.fromEl) grpDrag.fromEl.classList.add("dragging");
+  if(grpDrag.fromEl && grpDrag.pointerId !== null){
+    try { grpDrag.fromEl.setPointerCapture(grpDrag.pointerId); } catch(_){}
+  }
+}
+
+function grpCellAtPoint(x, y){
+  const g = $("drag-ghost");
+  const wasDisplay = g.style.display;
+  g.style.display = "none";
+  const el = document.elementFromPoint(x, y);
+  g.style.display = wasDisplay;
+  return el ? el.closest(".grp-cell") : null;
+}
+
+function grpCellPointerMove(e){
+  if(e.pointerId !== grpDrag.pointerId) return;
+  const dist = Math.hypot(e.clientX - grpDrag.startX, e.clientY - grpDrag.startY);
+  if(!grpDrag.active){
+    if(dist > 10){
+      // Moved before the long-press fired — treat as a scroll, abort the drag.
+      clearTimeout(grpDrag.pressTimer);
+      grpDrag.pressTimer = null;
+      grpDrag.pointerId = null;
+      grpCleanupCell(e.currentTarget);
+    }
+    return;
+  }
+  e.preventDefault();
+  updateGhost(e.clientX, e.clientY);
+  document.querySelectorAll(".grp-cell.grp-drop").forEach(el => el.classList.remove("grp-drop"));
+  const over = grpCellAtPoint(e.clientX, e.clientY);
+  if(over && over !== grpDrag.fromEl) over.classList.add("grp-drop");
+}
+
+function grpCellPointerUp(e){
+  if(e.pointerId !== grpDrag.pointerId) return;
+  clearTimeout(grpDrag.pressTimer);
+  const cell = e.currentTarget;
+  if(grpDrag.active){
+    const over = grpCellAtPoint(e.clientX, e.clientY);
+    const arr = grpActive() ? grpActive().included : null;
+    if(arr && over && over !== grpDrag.fromEl){
+      const toIdx = +over.dataset.idx;
+      [arr[grpDrag.fromIdx], arr[toIdx]] = [arr[toIdx], arr[grpDrag.fromIdx]];
+    }
+    grpEndDrag();
+    grpRenderPanel();
+  }
+  grpCleanupCell(cell);
+  grpDrag.pointerId = null;
+  grpDrag.fromEl = null;
+}
+
+function grpCellPointerCancel(e){
+  if(e.pointerId !== grpDrag.pointerId) return;
+  clearTimeout(grpDrag.pressTimer);
+  grpEndDrag();
+  grpCleanupCell(e.currentTarget);
+  grpDrag.pointerId = null;
+  grpDrag.fromEl = null;
+  grpRenderPanel();
+}
+
+function grpCleanupCell(el){
+  if(!el) return;
+  el.removeEventListener("pointermove", grpCellPointerMove);
+  el.removeEventListener("pointerup", grpCellPointerUp);
+  el.removeEventListener("pointercancel", grpCellPointerCancel);
+}
+
+function grpEndDrag(){
+  grpDrag.active = false;
+  $("drag-ghost").style.display = "none";
+  document.querySelectorAll(".grp-cell.grp-drop").forEach(el => el.classList.remove("grp-drop"));
+  document.querySelectorAll(".grp-cell.dragging").forEach(el => el.classList.remove("dragging"));
+}
+
+// ----- Render the included panel to a PNG -----
+function grpLoadImage(b64){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = dataUrl(b64);
+  });
+}
+
+// ----- Layout editor (right pane, Layout view) -----
+// Rows stack top to bottom. Each row is divided into `cols` equal columns;
+// its slots (a group, or an empty gap) each span some number of columns.
+function grpRenderLayout(){
+  const root = $("grp-rows");
+  root.innerHTML = "";
+  if(!GROUP.rows.length){
+    root.innerHTML = `<div class="grp-empty-hint">No rows yet — tap “+ Add Row”, then drop groups into its slots.</div>`;
+    return;
+  }
+  GROUP.rows.forEach((row, ri) => root.appendChild(grpBuildRowEditor(row, ri)));
+}
+
+function grpBuildRowEditor(row, ri){
+  const wrap = document.createElement("div");
+  wrap.className = "grp-row";
+
+  const head = document.createElement("div");
+  head.className = "grp-row-head";
+
+  const title = document.createElement("span");
+  title.className = "grp-row-title";
+  title.textContent = `Row ${ri + 1}`;
+  head.appendChild(title);
+
+  // Column-count stepper (the row's denominator).
+  const colsLbl = document.createElement("span"); colsLbl.textContent = "cols";
+  const cdec = document.createElement("button"); cdec.textContent = "−"; cdec.title = "Fewer columns";
+  const cval = document.createElement("span"); cval.className = "grp-perrow-val"; cval.textContent = row.cols;
+  const cinc = document.createElement("button"); cinc.textContent = "＋"; cinc.title = "More columns";
+  cdec.addEventListener("click", () => {
+    row.cols = Math.max(1, row.cols - 1);
+    row.slots.forEach(s => { if(s.span > row.cols) s.span = row.cols; });
+    grpRenderLayout();
+  });
+  cinc.addEventListener("click", () => { row.cols = Math.min(12, row.cols + 1); grpRenderLayout(); });
+  head.appendChild(colsLbl); head.appendChild(cdec); head.appendChild(cval); head.appendChild(cinc);
+
+  const addSlot = document.createElement("button");
+  addSlot.className = "grp-addslot";
+  addSlot.textContent = "+ Slot";
+  addSlot.addEventListener("click", () => { row.slots.push({ span: 1, groupId: null }); grpRenderLayout(); });
+  head.appendChild(addSlot);
+
+  const spacer = document.createElement("span"); spacer.className = "grp-spacer";
+  head.appendChild(spacer);
+
+  const up = document.createElement("button"); up.textContent = "↑"; up.title = "Move row up";
+  up.disabled = ri === 0;
+  up.addEventListener("click", () => { grpMove(GROUP.rows, ri, ri - 1); grpRenderLayout(); });
+  const down = document.createElement("button"); down.textContent = "↓"; down.title = "Move row down";
+  down.disabled = ri === GROUP.rows.length - 1;
+  down.addEventListener("click", () => { grpMove(GROUP.rows, ri, ri + 1); grpRenderLayout(); });
+  const delRow = document.createElement("button"); delRow.textContent = "✕"; delRow.title = "Delete row";
+  delRow.addEventListener("click", () => { GROUP.rows.splice(ri, 1); grpRenderLayout(); });
+  head.appendChild(up); head.appendChild(down); head.appendChild(delRow);
+
+  wrap.appendChild(head);
+
+  const slots = document.createElement("div");
+  slots.className = "grp-slots";
+  const used = row.slots.reduce((s, sl) => s + sl.span, 0);
+  row.slots.forEach((slot, si) => slots.appendChild(grpBuildSlotEditor(row, ri, slot, si)));
+  const leftover = row.cols - used;
+  if(leftover > 0){
+    const filler = document.createElement("div");
+    filler.className = "grp-slot-filler";
+    filler.style.flex = `${leftover} ${leftover} 0%`;
+    filler.title = `${leftover} empty column${leftover === 1 ? "" : "s"}`;
+    slots.appendChild(filler);
+  }
+  wrap.appendChild(slots);
+  return wrap;
+}
+
+function grpBuildSlotEditor(row, ri, slot, si){
+  const el = document.createElement("div");
+  el.className = "grp-slot" + (slot.groupId ? " filled" : "");
+  el.style.flex = `${slot.span} ${slot.span} 0%`;
+  const gSel = grpById(slot.groupId);
+  if(gSel) el.style.borderColor = gSel.color;
+
+  const sel = document.createElement("select");
+  const optEmpty = document.createElement("option");
+  optEmpty.value = ""; optEmpty.textContent = "— empty —";
+  if(!slot.groupId) optEmpty.selected = true;
+  sel.appendChild(optEmpty);
+  GROUP.groups.forEach(g => {
+    const o = document.createElement("option");
+    o.value = g.id;
+    o.textContent = `${g.name || "Group"} (${g.included.length})`;
+    if(g.id === slot.groupId) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", () => { slot.groupId = sel.value || null; grpRenderLayout(); });
+  el.appendChild(sel);
+
+  const ctrls = document.createElement("div");
+  ctrls.className = "grp-slot-ctrls";
+  const ml = document.createElement("button"); ml.textContent = "‹"; ml.title = "Move slot left";
+  ml.disabled = si === 0;
+  ml.addEventListener("click", () => { grpMove(row.slots, si, si - 1); grpRenderLayout(); });
+  const dec = document.createElement("button"); dec.textContent = "−"; dec.title = "Narrower";
+  dec.addEventListener("click", () => { slot.span = Math.max(1, slot.span - 1); grpRenderLayout(); });
+  const span = document.createElement("span"); span.className = "grp-slot-span"; span.textContent = `${slot.span}/${row.cols}`;
+  const inc = document.createElement("button"); inc.textContent = "+"; inc.title = "Wider";
+  inc.addEventListener("click", () => { slot.span = Math.min(row.cols, slot.span + 1); grpRenderLayout(); });
+  const mr = document.createElement("button"); mr.textContent = "›"; mr.title = "Move slot right";
+  mr.disabled = si === row.slots.length - 1;
+  mr.addEventListener("click", () => { grpMove(row.slots, si, si + 1); grpRenderLayout(); });
+  const del = document.createElement("button"); del.textContent = "✕"; del.title = "Remove slot";
+  del.addEventListener("click", () => { row.slots.splice(si, 1); grpRenderLayout(); });
+  ctrls.appendChild(ml); ctrls.appendChild(dec); ctrls.appendChild(span); ctrls.appendChild(inc); ctrls.appendChild(mr); ctrls.appendChild(del);
+  el.appendChild(ctrls);
+  return el;
+}
+
+// ----- Compose the whole layout to a PNG -----
+// Compute a group's rendered pixel height for a given content width, plus the
+// per-cell metrics used to draw it. Cells scale to fill the slot width.
+function grpGroupGeometry(g, contentW, K){
+  const pr = Math.max(1, g.perRow | 0);
+  const n = g.included.filter(u => state.items[u]).length;
+  const cellW = Math.max(24, (contentW - K.CELL_GAP * (pr - 1)) / pr);
+  const BORDER = Math.round(cellW * 0.09);
+  const pic = cellW - BORDER * 2;
+  const LABEL_GAP = Math.round(cellW * 0.05);
+  const LABEL_H = Math.round(cellW * 0.18);
+  const cellH = BORDER + pic + LABEL_GAP + LABEL_H;
+  const rowsN = n ? Math.ceil(n / pr) : 0;
+  const gridH = rowsN ? rowsN * cellH + (rowsN - 1) * K.CELL_GAP : 0;
+  const height = K.HEADER_H + (gridH ? K.HEADER_GAP + gridH : 0);
+  return { contentW, pr, cellW, BORDER, pic, LABEL_GAP, LABEL_H, cellH, height };
+}
+
+// Draw one group (header bar + item grid) at (x, y) within its content width.
+function grpDrawGroup(ctx, g, geo, x, y, imgMap, K){
+  const headColor = normalizeHex(g.color) || GRP_POOL_COLOR;
+  ctx.fillStyle = headColor;
+  roundRect(ctx, x, y, geo.contentW, K.HEADER_H, 8);
+  ctx.fill();
+  ctx.fillStyle = fgFor(headColor);
+  ctx.textAlign = "left";
+  ctx.font = `800 24px -apple-system, system-ui, sans-serif`;
+  ctx.fillText(g.name || "Group", x + 14, y + K.HEADER_H / 2, geo.contentW - 28);
+
+  const ids = g.included.filter(u => state.items[u]);
+  if(!ids.length) return;
+  const gy = y + K.HEADER_H + K.HEADER_GAP;
+  const labelFs = Math.max(11, Math.round(geo.cellW * 0.12));
+  ids.forEach((uidv, i) => {
+    const col = i % geo.pr;
+    const rowN = Math.floor(i / geo.pr);
+    const cx = x + col * (geo.cellW + K.CELL_GAP);
+    const cy = gy + rowN * (geo.cellH + K.CELL_GAP);
+    ctx.fillStyle = grpColorOf(uidv);
+    roundRect(ctx, cx, cy, geo.cellW, geo.cellH, Math.round(geo.cellW * 0.05));
+    ctx.fill();
+    const img = imgMap[uidv];
+    if(img){ ctx.drawImage(img, cx + geo.BORDER, cy + geo.BORDER, geo.pic, geo.pic); }
+    else { ctx.fillStyle = "#111"; ctx.fillRect(cx + geo.BORDER, cy + geo.BORDER, geo.pic, geo.pic); }
+    ctx.fillStyle = grpFontOf(uidv);
+    ctx.textAlign = "left";
+    ctx.font = `800 ${labelFs}px -apple-system, system-ui, sans-serif`;
+    ctx.fillText(grpRankLabel(uidv), cx + geo.BORDER, cy + geo.BORDER + geo.pic + geo.LABEL_GAP + geo.LABEL_H / 2, geo.pic);
+  });
+}
+
+// Render the full row/slot layout into `canvas`. Returns true on success.
+async function grpDrawLayout(canvas){
+  // Keep only rows that actually place at least one group.
+  const rows = GROUP.rows
+    .map(row => ({
+      cols: Math.max(1, row.cols | 0),
+      slots: row.slots.map(s => ({ span: Math.max(1, s.span | 0), group: grpById(s.groupId) })),
+    }))
+    .filter(row => row.slots.some(s => s.group));
+  if(!rows.length) return false;
+
+  // Geometry (output pixels).
+  const K = { HEADER_H: 46, HEADER_GAP: 10, CELL_GAP: 12 };
+  const OUT_W = 1600;
+  const PAD = 28;
+  const ROW_GAP = 26;
+  const GMARGIN = 10;   // breathing room around a group inside its slot
+  const innerW = OUT_W - PAD * 2;
+
+  // Preload every image used anywhere in the layout.
+  const uidSet = new Set();
+  rows.forEach(r => r.slots.forEach(s => { if(s.group) s.group.included.forEach(u => { if(state.items[u]) uidSet.add(u); }); }));
+  const uids = [...uidSet];
+  const loaded = await Promise.all(uids.map(u => grpLoadImage(displayB64(state.items[u]))));
+  const imgMap = {};
+  uids.forEach((u, i) => imgMap[u] = loaded[i]);
+
+  // Place slots and measure row heights.
+  const placedRows = rows.map(row => {
+    const denom = Math.max(row.cols, row.slots.reduce((s, sl) => s + sl.span, 0));
+    let cursor = 0;
+    const placed = row.slots.map(sl => {
+      const x = PAD + (cursor / denom) * innerW;
+      const w = (sl.span / denom) * innerW;
+      cursor += sl.span;
+      let geo = null;
+      if(sl.group) geo = grpGroupGeometry(sl.group, w - GMARGIN * 2, K);
+      return { group: sl.group, x, geo };
+    });
+    const contentH = placed.reduce((m, p) => p.geo ? Math.max(m, p.geo.height) : m, 0);
+    return { placed, rowH: contentH + GMARGIN * 2 };
+  });
+
+  const totalH = PAD * 2 + placedRows.reduce((s, r) => s + r.rowH, 0) + ROW_GAP * (placedRows.length - 1);
+
+  canvas.width = OUT_W;
+  canvas.height = Math.round(totalH);
+  canvas.style.width = OUT_W + "px";
+  canvas.style.height = Math.round(totalH) + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#1c1c1c";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.textBaseline = "middle";
+
+  let y = PAD;
+  placedRows.forEach(row => {
+    row.placed.forEach(p => {
+      if(p.group && p.geo) grpDrawGroup(ctx, p.group, p.geo, p.x + GMARGIN, y + GMARGIN, imgMap, K);
+    });
+    y += row.rowH + ROW_GAP;
+  });
+  return true;
+}
+
+// Build the composed image and show it in the preview modal (does not download).
+async function grpShowPreview(){
+  const ok = await grpDrawLayout($("grp-preview-canvas"));
+  if(!ok){ showToast("Add at least one group with items to a layout row first."); return; }
+  openModal("modal-grp-preview");
+}
+
+// Download whatever is currently in the preview canvas as a PNG.
+async function grpSaveImage(){
+  const canvas = $("grp-preview-canvas");
+  if(!canvas.width || !canvas.height) return;
+  const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+  if(!blob) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  a.download = `tierlist_group_${ts}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const mb = (blob.size / (1024 * 1024)).toFixed(1);
+  showToast(`Group image saved (${mb} MB)`);
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ----- Group wiring -----
+$("btn-group").addEventListener("click", grpOpen);
+$("grp-close").addEventListener("click", grpClose);
+$("grp-view-items").addEventListener("click", () => grpSetView("items"));
+$("grp-view-layout").addEventListener("click", () => grpSetView("layout"));
+$("grp-add-row").addEventListener("click", () => {
+  GROUP.rows.push({ cols: 3, slots: [{ span: 1, groupId: null }] });
+  grpRenderLayout();
+});
+$("grp-render").addEventListener("click", grpShowPreview);
+$("grp-preview-save").addEventListener("click", grpSaveImage);
+$("grp-search-input").addEventListener("input", e => {
+  GROUP.search = e.target.value;
+  $("grp-search-clear").classList.toggle("show", !!e.target.value);
+  grpRenderLeft();
+});
+$("grp-search-clear").addEventListener("click", () => {
+  GROUP.search = "";
+  const input = $("grp-search-input");
+  input.value = "";
+  $("grp-search-clear").classList.remove("show");
+  grpRenderLeft();
+  input.focus();
+});
 
 // ----- Init -----
 function init(){
